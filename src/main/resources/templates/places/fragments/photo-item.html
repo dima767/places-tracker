@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Fragment for a single photo item (used by htmx photo upload) -->
+<div th:fragment="photo-item" class="photo-item col-sm-6 col-md-4 col-lg-3 mb-3">
+    <!-- Hidden field for form submission (belongs to main place form) -->
+    <input type="hidden" th:value="${photoId}" name="photoIds" form="place-edit-form">
+    <div class="card">
+        <img th:src="@{/places/photos/{id}(id=${photoId})}"
+             alt="Place photo"
+             class="card-img-top"
+             style="height: 200px; object-fit: cover;"
+             loading="lazy">
+        <div class="card-body p-2">
+            <button th:attr="hx-post=@{/places/{placeId}/photos/{photoId}/delete(placeId=${placeId},photoId=${photoId})}"
+                    hx-confirm="Delete this photo?"
+                    hx-target="closest .photo-item"
+                    hx-swap="outerHTML swap:1s"
+                    class="btn btn-sm btn-danger w-100">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+name: placestracker
+
+services:
+  mongodb:
+    image: mongo:8.0
+    container_name: placestracker-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: placestracker
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - placestracker-network
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  placestracker-network:
+    driver: bridge

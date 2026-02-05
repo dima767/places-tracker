@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Photo Upload Section Fragment -->
+    <div th:fragment="photo-upload(placeId, visitId)">
+        <div class="mb-2">
+            <label th:for="'photo-input-' + ${visitId}" class="form-label small fw-bold">
+                Photos
+            </label>
+            <input type="file"
+                   class="form-control form-control-sm"
+                   th:id="'photo-input-' + ${visitId}"
+                   multiple
+                   accept="image/jpeg,image/png,image/webp"
+                   th:attr="data-place-id=${placeId},data-visit-id=${visitId}">
+            <div class="form-text">
+                Select multiple photos (JPG, PNG, WEBP, max <span th:text="${maxPhotoSizeMB}">15</span>MB each)
+            </div>
+            <button type="button"
+                    class="btn btn-sm btn-primary mt-1"
+                    th:attr="data-visit-id=${visitId}"
+                    onclick="uploadVisitPhotos(this.getAttribute('data-visit-id'))">
+                <i class="bi bi-upload"></i> Upload Selected
+            </button>
+            <div th:id="'upload-status-' + ${visitId}" class="mt-1"></div>
+        </div>
+    </div>
+
+    <!-- Photo Gallery Section Fragment -->
+    <div th:fragment="photo-gallery(placeId, visitId, visitIndex, photoIds)">
+        <div th:if="${photoIds != null && !photoIds.isEmpty()}"
+             th:id="'photo-gallery-' + ${visitId}"
+             class="photo-gallery mt-2">
+            <div class="row g-2">
+                <div th:each="photoId, photoStat : ${photoIds}"
+                     class="col-auto photo-item"
+                     th:id="'photo-' + ${photoId}">
+                    <div class="position-relative">
+                        <a th:href="@{/places/photos/{id}(id=${photoId})}"
+                           th:attr="data-lightbox='visit-' + ${visitId}"
+                           data-title="Visit photo">
+                            <img th:src="@{/places/photos/{id}/thumbnail(id=${photoId},size=80)}"
+                                 class="img-thumbnail"
+                                 style="width: 80px; height: 80px; object-fit: cover;"
+                                 loading="lazy"
+                                 alt="Visit photo">
+                        </a>
+                        <button type="button"
+                                class="btn btn-danger btn-sm position-absolute top-0 end-0"
+                                style="padding: 0 4px; font-size: 0.75rem;"
+                                th:attr="hx-post=@{/places/photos/{id}/delete(id=${photoId},placeId=${placeId})},
+                                         hx-target='#photo-' + ${photoId},
+                                         hx-swap='outerHTML',
+                                         hx-confirm='Delete this photo?'">
+                            <i class="bi bi-x"></i>
+                        </button>
+                        <!-- Hidden field to properly bind photo IDs to visit -->
+                        <input type="hidden" th:field="*{visits[__${visitIndex}__].photoIds[__${photoStat.index}__]}" th:value="${photoId}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div th:if="${photoIds == null || photoIds.isEmpty()}"
+             th:id="'photo-gallery-' + ${visitId}"
+             class="text-muted small mt-2">
+            No photos yet
+        </div>
+    </div>
+</body>
+</html>

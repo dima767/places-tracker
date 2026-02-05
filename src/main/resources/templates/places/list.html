@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>All Places</title>
+    <style>
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .sortable:hover {
+            background-color: var(--bg-elevated, #f8f9fa);
+        }
+        .sort-icon {
+            display: inline-block;
+            width: 1em;
+            margin-left: 0.25rem;
+            opacity: 0.3;
+        }
+        .sortable.active .sort-icon {
+            opacity: 1;
+        }
+        .pagination-info {
+            color: var(--text-muted, #6c757d);
+            font-size: 0.875rem;
+        }
+        .page-size-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-color: var(--bg-surface, #fff);
+            border: 1px solid var(--border-color, #dee2e6);
+            border-radius: 0.375rem;
+            padding: 0.35rem 2rem 0.35rem 0.75rem;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            color: var(--text-primary, #212529);
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 0.75rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        .page-size-select:hover {
+            border-color: var(--primary-color, #198754);
+        }
+        .page-size-select:focus {
+            border-color: var(--primary-color, #198754);
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div layout:fragment="content">
+        <!-- Page Header -->
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="mb-1">All Places</h1>
+                <p class="text-muted mb-0">Your visited locations</p>
+            </div>
+            <a th:href="@{/places/new}" class="btn btn-success">
+                <i class="bi bi-plus-lg me-1"></i> Add Place
+            </a>
+        </div>
+
+        <!-- Search -->
+        <div class="card card-static mb-4">
+            <div class="card-body py-3">
+                <div class="position-relative">
+                    <div class="input-group">
+                        <span class="input-group-text" style="border-radius: var(--radius-md) 0 0 var(--radius-md); border-right: none; background: var(--bg-elevated);">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="search"
+                               class="form-control"
+                               id="searchInput"
+                               name="q"
+                               th:value="${searchQuery}"
+                               placeholder="Search places by name, location, or state..."
+                               style="border-left: none; border-radius: 0 var(--radius-md) var(--radius-md) 0;"
+                               th:hx-get="@{/places/search}"
+                               hx-trigger="keyup changed delay:300ms"
+                               hx-target="#places-table"
+                               hx-swap="outerHTML"
+                               hx-include="#pagination-state"
+                               hx-indicator="#search-indicator">
+                    </div>
+                    <span id="search-indicator" class="htmx-indicator position-absolute" style="right: 1rem; top: 50%; transform: translateY(-50%);">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Places Table -->
+        <div id="places-table" th:fragment="places-table">
+            <!-- Hidden state for htmx requests -->
+            <div id="pagination-state" style="display: none;">
+                <input type="hidden" name="sort" th:value="${placePage != null ? placePage.sortField : 'lastVisit'}">
+                <input type="hidden" name="direction" th:value="${placePage != null ? placePage.sortDirection : 'desc'}">
+                <input type="hidden" name="size" th:value="${placePage != null ? placePage.size : 10}">
+            </div>
+
+            <div th:if="${places != null and !places.isEmpty()}" class="card card-static">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>State</th>
+                                <th>Country</th>
+                                <th class="sortable"
+                                    th:classappend="${placePage != null and placePage.sortField == 'distance'} ? 'active' : ''"
+                                    th:hx-get="@{/places/search(sort='distance', direction=${placePage != null and placePage.sortField == 'distance' and placePage.sortDirection == 'asc' ? 'desc' : 'asc'}, size=${placePage != null ? placePage.size : 10}, q=${searchQuery ?: ''})}"
+                                    hx-target="#places-table"
+                                    hx-swap="outerHTML">
+                                    Distance
+                                    <span class="sort-icon">
+                                        <i th:if="${placePage != null and placePage.sortField == 'distance' and placePage.sortDirection == 'asc'}" class="bi bi-sort-up"></i>
+                                        <i th:if="${placePage != null and placePage.sortField == 'distance' and placePage.sortDirection == 'desc'}" class="bi bi-sort-down"></i>
+                                        <i th:if="${placePage == null or placePage.sortField != 'distance'}" class="bi bi-arrow-down-up"></i>
+                                    </span>
+                                </th>
+                                <th>Visits</th>
+                                <th class="sortable"
+                                    th:classappend="${placePage != null and placePage.sortField == 'lastVisit'} ? 'active' : ''"
+                                    th:hx-get="@{/places/search(sort='lastVisit', direction=${placePage != null and placePage.sortField == 'lastVisit' and placePage.sortDirection == 'desc' ? 'asc' : 'desc'}, size=${placePage != null ? placePage.size : 10}, q=${searchQuery ?: ''})}"
+                                    hx-target="#places-table"
+                                    hx-swap="outerHTML">
+                                    Last Visit
+                                    <span class="sort-icon">
+                                        <i th:if="${placePage != null and placePage.sortField == 'lastVisit' and placePage.sortDirection == 'asc'}" class="bi bi-sort-up"></i>
+                                        <i th:if="${placePage != null and placePage.sortField == 'lastVisit' and placePage.sortDirection == 'desc'}" class="bi bi-sort-down"></i>
+                                        <i th:if="${placePage == null or placePage.sortField != 'lastVisit'}" class="bi bi-arrow-down-up"></i>
+                                    </span>
+                                </th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="place : ${places}">
+                                <td>
+                                    <a th:href="@{/places/{id}(id=${place.id})}"
+                                       th:text="${place.name}"
+                                       class="text-decoration-none fw-medium">
+                                        Place Name
+                                    </a>
+                                </td>
+                                <td style="color: var(--text-tertiary);" th:text="${place.location}">Location</td>
+                                <td th:text="${place.state}">State</td>
+                                <td th:text="${place.country}">Country</td>
+                                <td style="color: var(--text-tertiary);"
+                                    th:with="result=${distances.get(place.id)}"
+                                    th:text="${result != null and result.hasDistance()} ? ${T(dk.placestracker.util.DistanceCalculator).formatDistanceWithDuration(result.miles, result.durationMinutes, result.isFallback())} : 'N/A'">N/A</td>
+                                <td>
+                                    <span class="badge bg-success" th:text="${place.visitCount}">0</span>
+                                </td>
+                                <td>
+                                    <span th:if="${place.mostRecentVisit.isPresent()}"
+                                          class="small"
+                                          th:text="${#temporals.format(place.mostRecentVisit.get().date, 'MMM d, yyyy')}">
+                                        Date
+                                    </span>
+                                    <span th:unless="${place.mostRecentVisit.isPresent()}" class="small" style="color: var(--text-muted); font-style: italic;">
+                                        —
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <a th:href="@{/places/{id}(id=${place.id})}"
+                                           class="btn btn-outline-success"
+                                           title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a th:href="@{/places/{id}/edit(id=${place.id})}"
+                                           class="btn btn-outline-secondary"
+                                           title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <form th:action="@{/places/{id}/delete(id=${place.id})}"
+                                              method="post"
+                                              style="display: inline;"
+                                              data-confirm="delete-place">
+                                            <button type="submit"
+                                                    class="btn btn-outline-danger"
+                                                    title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Footer with pagination and page size selector -->
+                <div th:if="${placePage != null and placePage.totalElements > 0}" class="card-footer d-flex justify-content-between align-items-center">
+                    <!-- Count info -->
+                    <div class="pagination-info">
+                        <span th:if="${placePage.totalPages > 1}">
+                            Showing
+                            <span th:text="${(placePage.page * placePage.size) + 1}">1</span>–<span th:text="${((placePage.page * placePage.size) + placePage.size) > placePage.totalElements ? placePage.totalElements : ((placePage.page * placePage.size) + placePage.size)}">10</span>
+                            of <span th:text="${placePage.totalElements}">100</span> places
+                        </span>
+                        <span th:if="${placePage.totalPages <= 1}">
+                            Showing all <span th:text="${placePage.totalElements}">10</span> places
+                        </span>
+                    </div>
+
+                    <!-- Pagination controls (only when multiple pages) -->
+                    <nav th:if="${placePage.totalPages > 1}" aria-label="Page navigation">
+                        <ul class="pagination pagination-sm mb-0">
+                            <!-- Previous -->
+                            <li class="page-item" th:classappend="${!placePage.hasPrevious} ? 'disabled'">
+                                <a class="page-link"
+                                   th:if="${placePage.hasPrevious}"
+                                   href="#"
+                                   th:hx-get="@{/places/search(page=${placePage.page - 1}, size=${placePage.size}, sort=${placePage.sortField}, direction=${placePage.sortDirection}, q=${searchQuery ?: ''})}"
+                                   hx-target="#places-table"
+                                   hx-swap="outerHTML">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                                <span th:unless="${placePage.hasPrevious}" class="page-link">
+                                    <i class="bi bi-chevron-left"></i>
+                                </span>
+                            </li>
+
+                            <!-- Page numbers -->
+                            <th:block th:with="startPage=${T(java.lang.Math).max(0, placePage.page - 2)},
+                                              endPage=${T(java.lang.Math).min(placePage.totalPages - 1, placePage.page + 2)}">
+                                <!-- First page if not in range -->
+                                <li class="page-item" th:if="${startPage > 0}">
+                                    <a class="page-link" href="#"
+                                       th:hx-get="@{/places/search(page=0, size=${placePage.size}, sort=${placePage.sortField}, direction=${placePage.sortDirection}, q=${searchQuery ?: ''})}"
+                                       hx-target="#places-table"
+                                       hx-swap="outerHTML">1</a>
+                                </li>
+                                <li class="page-item disabled" th:if="${startPage > 1}">
+                                    <span class="page-link">...</span>
+                                </li>
+
+                                <!-- Page range -->
+                                <li class="page-item"
+                                    th:each="pageNum : ${#numbers.sequence(startPage, endPage)}"
+                                    th:classappend="${pageNum == placePage.page} ? 'active'">
+                                    <a class="page-link"
+                                       th:if="${pageNum != placePage.page}"
+                                       href="#"
+                                       th:hx-get="@{/places/search(page=${pageNum}, size=${placePage.size}, sort=${placePage.sortField}, direction=${placePage.sortDirection}, q=${searchQuery ?: ''})}"
+                                       hx-target="#places-table"
+                                       hx-swap="outerHTML"
+                                       th:text="${pageNum + 1}">1</a>
+                                    <span th:unless="${pageNum != placePage.page}" class="page-link" th:text="${pageNum + 1}">1</span>
+                                </li>
+
+                                <!-- Last page if not in range -->
+                                <li class="page-item disabled" th:if="${endPage < placePage.totalPages - 2}">
+                                    <span class="page-link">...</span>
+                                </li>
+                                <li class="page-item" th:if="${endPage < placePage.totalPages - 1}">
+                                    <a class="page-link" href="#"
+                                       th:hx-get="@{/places/search(page=${placePage.totalPages - 1}, size=${placePage.size}, sort=${placePage.sortField}, direction=${placePage.sortDirection}, q=${searchQuery ?: ''})}"
+                                       hx-target="#places-table"
+                                       hx-swap="outerHTML"
+                                       th:text="${placePage.totalPages}">10</a>
+                                </li>
+                            </th:block>
+
+                            <!-- Next -->
+                            <li class="page-item" th:classappend="${!placePage.hasNext} ? 'disabled'">
+                                <a class="page-link"
+                                   th:if="${placePage.hasNext}"
+                                   href="#"
+                                   th:hx-get="@{/places/search(page=${placePage.page + 1}, size=${placePage.size}, sort=${placePage.sortField}, direction=${placePage.sortDirection}, q=${searchQuery ?: ''})}"
+                                   hx-target="#places-table"
+                                   hx-swap="outerHTML">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                                <span th:unless="${placePage.hasNext}" class="page-link">
+                                    <i class="bi bi-chevron-right"></i>
+                                </span>
+                            </li>
+                        </ul>
+                    </nav>
+
+                    <!-- Page size selector (always visible) -->
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="pagination-info mb-0">Per page:</label>
+                        <select class="page-size-select"
+                                th:hx-get="@{/places/search(page=0, sort=${placePage.sortField}, direction=${placePage.sortDirection}, q=${searchQuery ?: ''})}"
+                                hx-target="#places-table"
+                                hx-swap="outerHTML"
+                                hx-trigger="change"
+                                name="size">
+                            <option value="10" th:selected="${placePage.size == 10}">10</option>
+                            <option value="25" th:selected="${placePage.size == 25}">25</option>
+                            <option value="50" th:selected="${placePage.size == 50}">50</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div th:if="${places == null or places.isEmpty()}" class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="bi bi-geo-alt"></i>
+                </div>
+                <h3>No places found</h3>
+                <p>Start building your collection</p>
+                <a th:href="@{/places/new}" class="btn btn-success">
+                    <i class="bi bi-plus-lg me-2"></i>Add Your First Place
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

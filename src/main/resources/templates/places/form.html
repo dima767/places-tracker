@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Form Fragments</title>
+</head>
+<body>
+    <!-- State/Province options fragment for htmx -->
+    <th:block th:fragment="state-options">
+        <option value="">Select a state/province...</option>
+        <option th:each="state : ${states}"
+                th:value="${state.code}"
+                th:text="${state.name}"
+                th:selected="${selectedState != null && state.code == selectedState}">State/Province</option>
+    </th:block>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Place Basic Info Fields -->
+    <div th:fragment="basic-info">
+        <!-- Name -->
+        <div class="mb-3">
+            <label for="name" class="form-label">Place Name <span class="text-danger">*</span></label>
+            <input type="text"
+                   class="form-control"
+                   th:classappend="${#fields.hasErrors('name')} ? 'is-invalid' : ''"
+                   id="name"
+                   th:field="*{name}"
+                   placeholder="e.g., Yellowstone National Park"
+                   required>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">
+                Name error
+            </div>
+        </div>
+
+        <!-- Location -->
+        <div class="mb-3">
+            <label for="location" class="form-label">Location <span class="text-danger">*</span></label>
+            <input type="text"
+                   class="form-control"
+                   th:classappend="${#fields.hasErrors('location')} ? 'is-invalid' : ''"
+                   id="location"
+                   th:field="*{location}"
+                   placeholder="e.g., Park County"
+                   required>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('location')}" th:errors="*{location}">
+                Location error
+            </div>
+        </div>
+    </div>
+
+    <!-- Facilities Section -->
+    <div th:fragment="facilities" class="mb-3">
+        <label class="form-label fw-bold">Facilities</label>
+        <div class="form-check form-switch">
+            <input type="checkbox"
+                   class="form-check-input"
+                   id="hasToilet"
+                   th:field="*{hasToilet}">
+            <label class="form-check-label" for="hasToilet">
+                <i class="bi bi-check-circle-fill text-success"></i> Has Toilet
+            </label>
+        </div>
+    </div>
+
+    <!-- Country/State Fields for Create page -->
+    <div th:fragment="country-state-create" class="row">
+        <div class="col-md-6 mb-3">
+            <label for="country" class="form-label">Country <span class="text-danger">*</span></label>
+            <select class="form-select"
+                    th:classappend="${#fields.hasErrors('country')} ? 'is-invalid' : ''"
+                    id="country"
+                    th:field="*{country}"
+                    hx-get="/placestracker/places/states"
+                    hx-trigger="change"
+                    hx-target="#state"
+                    hx-include="[name='country']"
+                    required>
+                <option value="">Select a country...</option>
+                <option th:each="country : ${countries}"
+                        th:value="${country.code}"
+                        th:text="${country.name}">Country</option>
+            </select>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('country')}" th:errors="*{country}">
+                Country error
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="state" class="form-label">State/Province <span class="text-danger">*</span></label>
+            <select class="form-select"
+                    th:classappend="${#fields.hasErrors('state')} ? 'is-invalid' : ''"
+                    id="state"
+                    name="state"
+                    required>
+                <option value="">Select a country first...</option>
+            </select>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('state')}" th:errors="*{state}">
+                State error
+            </div>
+        </div>
+    </div>
+
+    <!-- Country/State Fields for Edit page -->
+    <div th:fragment="country-state-edit" class="row">
+        <div class="col-md-6 mb-3">
+            <label for="country" class="form-label">Country <span class="text-danger">*</span></label>
+            <select class="form-select"
+                    th:classappend="${#fields.hasErrors('country')} ? 'is-invalid' : ''"
+                    id="country"
+                    th:field="*{country}"
+                    hx-get="/placestracker/places/states"
+                    hx-trigger="change"
+                    hx-target="#state"
+                    hx-include="[name='country']"
+                    required>
+                <option value="">Select a country...</option>
+                <option th:each="country : ${countries}"
+                        th:value="${country.code}"
+                        th:text="${country.name}">Country</option>
+            </select>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('country')}" th:errors="*{country}">
+                Country error
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="state" class="form-label">State/Province <span class="text-danger">*</span></label>
+            <select class="form-select"
+                    th:classappend="${#fields.hasErrors('state')} ? 'is-invalid' : ''"
+                    id="state"
+                    name="state"
+                    th:attr="data-selected-state=${place.state}"
+                    hx-get="/placestracker/places/states"
+                    hx-trigger="load"
+                    hx-include="[name='country']"
+                    hx-vals='js:{"selectedState": document.getElementById("state").dataset.selectedState}'
+                    required>
+                <option th:value="${place.state}" th:text="${place.state}" th:selected="true">Current State</option>
+            </select>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('state')}" th:errors="*{state}">
+                State error
+            </div>
+        </div>
+    </div>
+
+    <!-- Google-extracted hidden fields -->
+    <div th:fragment="google-data-fields">
+        <input type="hidden" id="formattedAddress" th:field="*{formattedAddress}">
+        <input type="hidden" id="googlePlaceId" th:field="*{googlePlaceId}">
+        <input type="hidden" id="website" th:field="*{website}">
+        <input type="hidden" id="phoneNumber" th:field="*{phoneNumber}">
+        <input type="hidden" id="googleRating" th:field="*{googleRating}">
+        <input type="hidden" id="googleReviewCount" th:field="*{googleReviewCount}">
+        <!-- Google reviews will be stored as JSON string -->
+        <input type="hidden" id="googleReviewsJson" name="googleReviewsJson">
+    </div>
+
+    <!-- Coordinates Fields -->
+    <div th:fragment="coordinates" class="row">
+        <div class="col-md-6 mb-3">
+            <label for="latitude" class="form-label">
+                Latitude
+                <small class="text-muted">(auto-filled)</small>
+            </label>
+            <input type="number"
+                   step="any"
+                   class="form-control bg-light"
+                   th:classappend="${#fields.hasErrors('latitude')} ? 'is-invalid' : ''"
+                   id="latitude"
+                   th:field="*{latitude}"
+                   placeholder="Auto-filled from Google Maps URL"
+                   readonly>
+            <small class="form-text text-muted">Extracted from Google Maps URL</small>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('latitude')}" th:errors="*{latitude}">
+                Latitude error
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="longitude" class="form-label">
+                Longitude
+                <small class="text-muted">(auto-filled)</small>
+            </label>
+            <input type="number"
+                   step="any"
+                   class="form-control bg-light"
+                   th:classappend="${#fields.hasErrors('longitude')} ? 'is-invalid' : ''"
+                   id="longitude"
+                   th:field="*{longitude}"
+                   placeholder="Auto-filled from Google Maps URL"
+                   readonly>
+            <small class="form-text text-muted">Extracted from Google Maps URL</small>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('longitude')}" th:errors="*{longitude}">
+                Longitude error
+            </div>
+        </div>
+    </div>
+</body>
+</html>

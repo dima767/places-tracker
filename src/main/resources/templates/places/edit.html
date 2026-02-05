@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Edit Place</title>
+</head>
+<body>
+    <div layout:fragment="content" th:attr="data-max-photo-size-mb=${maxPhotoSizeMB}">
+        <!-- Sticky Action Bar -->
+        <div class="edit-sticky-bar">
+            <div class="edit-sticky-bar-inner">
+                <a th:href="@{/places}" class="btn btn-outline-secondary btn-sm edit-sticky-bar-back">
+                    <i class="bi bi-arrow-left me-1"></i><span class="btn-text">Places</span>
+                </a>
+                <div class="edit-sticky-bar-title">
+                    <span class="edit-sticky-bar-label">Editing:</span>
+                    <span class="edit-sticky-bar-name" th:text="${place.name}">Place Name</span>
+                </div>
+                <div class="edit-sticky-bar-actions">
+                    <a th:href="@{/places/{id}(id=${place.id})}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-eye"></i><span class="btn-text ms-1">View</span>
+                    </a>
+                    <button type="submit" form="place-edit-form" class="btn btn-success btn-sm">
+                        <i class="bi bi-check-lg"></i><span class="btn-text ms-1">Save</span>
+                    </button>
+                    <form th:action="@{/places/{id}/delete(id=${place.id})}" method="post" style="display: inline;"
+                          data-confirm="delete-place">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash"></i><span class="btn-text ms-1">Delete</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mt-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a th:href="@{/}">Home</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/places}">Places</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/places/{id}(id=${place.id})}" th:text="${place.name}">Place</a></li>
+                <li class="breadcrumb-item active">Edit</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="mb-1">Edit Place</h1>
+                <p class="text-muted mb-0" th:text="${place.name}">Place Name</p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <!-- Google Maps Auto-Fill -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-lightning me-2"></i>Update from Google
+                    </div>
+                    <div class="card-body">
+                        <div th:replace="~{places/fragments/google-maps-autofill :: autofill-section('update')}"></div>
+                    </div>
+                </div>
+
+                <!-- Main Form -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-pencil-square me-2"></i>Place Details
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/places/{id}(id=${place.id})}" th:object="${place}" method="post" id="place-edit-form">
+                            <input type="hidden" id="place-id-field" th:value="${place.id}" readonly>
+
+                            <!-- Basic Info -->
+                            <div th:replace="~{places/fragments/place-form-fields :: basic-info}"></div>
+
+                            <!-- Country/State -->
+                            <div th:replace="~{places/fragments/place-form-fields :: country-state-edit}"></div>
+
+                            <!-- Facilities -->
+                            <div th:replace="~{places/fragments/place-form-fields :: facilities}"></div>
+
+                            <!-- Google Data (hidden) -->
+                            <div th:replace="~{places/fragments/place-form-fields :: google-data-fields}"></div>
+
+                            <!-- Visits Section -->
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <label class="form-label fw-bold mb-0">Visits <span class="text-danger">*</span></label>
+                                        <div class="form-text">Manage your visits to this place.</div>
+                                    </div>
+                                    <span class="badge bg-success" th:text="${place.visitCount} + ' total'">0 total</span>
+                                </div>
+
+                                <div id="visits-container">
+                                    <!-- Existing Visits -->
+                                    <div th:each="visit, stat : ${place.visits}"
+                                         class="visit-row card mb-3"
+                                         th:attr="data-visit-index=${stat.index}"
+                                         >
+                                        <div class="card-header d-flex justify-content-between align-items-center py-2" >
+                                            <span class="fw-medium" style="color: var(--primary-700);">
+                                                <i class="bi bi-calendar-event me-1"></i>Visit #<span class="visit-number" th:text="${stat.index + 1}">1</span>
+                                            </span>
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-visit-btn">
+                                                <i class="bi bi-trash me-1"></i>Remove
+                                            </button>
+                                        </div>
+                                        <div class="card-body">
+                                            <input type="hidden" th:field="*{visits[__${stat.index}__].id}">
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Date <span class="text-danger">*</span></label>
+                                                    <input type="date" class="form-control visit-date-input" th:field="*{visits[__${stat.index}__].date}" required>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Temp (°F)</label>
+                                                    <input type="number" class="form-control" th:field="*{visits[__${stat.index}__].temperatureF}" step="0.1" min="-50" max="150" placeholder="72">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Duration</label>
+                                                    <input type="text" class="form-control" th:name="|visitDurations[${stat.index}]|" th:value="${visit.duration != null ? T(dk.placestracker.util.DurationUtils).format(visit.duration) : ''}" placeholder="2h30min">
+                                                </div>
+                                                <div class="col-12 mt-2">
+                                                    <label class="form-label">Notes</label>
+                                                    <textarea class="form-control visit-notes-textarea" th:field="*{visits[__${stat.index}__].notes}" rows="6" maxlength="2000" placeholder="What did you experience? Describe the trails, wildlife, weather, memorable moments..."></textarea>
+                                                </div>
+                                            </div>
+
+                                            <!-- Photos -->
+                                            <div class="mt-3 pt-3" style="border-top: 1px solid var(--border-light);">
+                                                <div th:replace="~{places/fragments/visit-photo-management :: photo-upload(${place.id}, ${visit.id})}"></div>
+                                                <div th:replace="~{places/fragments/visit-photo-management :: photo-gallery(${place.id}, ${visit.id}, ${stat.index}, ${visit.photoIds})}"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Empty State -->
+                                    <div th:if="${place.visits == null || place.visits.isEmpty()}"
+                                         class="visit-row card mb-3"
+                                         data-visit-index="0"
+                                         >
+                                        <div class="card-header d-flex justify-content-between align-items-center py-2" >
+                                            <span class="fw-medium" style="color: var(--primary-700);">
+                                                <i class="bi bi-calendar-event me-1"></i>Visit #<span class="visit-number">1</span>
+                                            </span>
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-visit-btn" disabled>
+                                                <i class="bi bi-trash me-1"></i>Remove
+                                            </button>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Date <span class="text-danger">*</span></label>
+                                                    <input type="date" class="form-control visit-date-input" name="visits[0].date" required>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Temp (°F)</label>
+                                                    <input type="number" class="form-control" name="visits[0].temperatureF" step="0.1" min="-50" max="150" placeholder="72">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Duration</label>
+                                                    <input type="text" class="form-control" name="visitDurations[0]" placeholder="2h30min">
+                                                </div>
+                                                <div class="col-12 mt-2">
+                                                    <label class="form-label">Notes</label>
+                                                    <textarea class="form-control visit-notes-textarea" name="visits[0].notes" rows="6" maxlength="2000" placeholder="What did you experience? Describe the trails, wildlife, weather, memorable moments..."></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="addVisit()">
+                                    <i class="bi bi-plus-lg me-1"></i>Add Another Visit
+                                </button>
+                            </div>
+
+                            <!-- Coordinates -->
+                            <div th:replace="~{places/fragments/place-form-fields :: coordinates}"></div>
+
+                            <!-- Actions -->
+                            <hr class="my-4">
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check-lg me-1"></i>Update Place
+                                </button>
+                                <a th:href="@{/places/{id}(id=${place.id})}" class="btn btn-secondary">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="card mb-4" style="border-color: var(--primary-200);">
+                    <div class="card-body">
+                        <h6 style="font-family: var(--font-display); color: var(--primary-700);">
+                            <i class="bi bi-lightbulb me-2"></i>Tips
+                        </h6>
+                        <ul class="small mb-0" style="color: var(--text-secondary); padding-left: 1.25rem;">
+                            <li class="mb-2">Use Google Maps URL to update place data</li>
+                            <li class="mb-2">Photos can be uploaded immediately</li>
+                            <li class="mb-2">Visit dates cannot be in the future</li>
+                            <li>Duration format: 10min, 1h25min, 2d5h</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card" style="border-color: var(--border-default);">
+                    <div class="card-body">
+                        <h6 style="font-family: var(--font-display); color: var(--text-secondary);">
+                            <i class="bi bi-bar-chart me-2"></i>Stats
+                        </h6>
+                        <div class="small" style="color: var(--text-tertiary);">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Total Visits:</span>
+                                <span style="color: var(--text-secondary);" th:text="${place.visitCount}">0</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1" th:if="${place.createdAt != null}">
+                                <span>Added:</span>
+                                <span style="color: var(--text-secondary);" th:text="${#temporals.format(place.createdAt, 'MMM d, yyyy')}">Date</span>
+                            </div>
+                            <div class="d-flex justify-content-between" th:if="${place.updatedAt != null}">
+                                <span>Updated:</span>
+                                <span style="color: var(--text-secondary);" th:text="${#temporals.format(place.updatedAt, 'MMM d, yyyy')}">Date</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scripts -->
+        <script th:inline="javascript">
+        window.placesTrackerConfig = {
+            extractFromUrlEndpoint: /*[[@{/places/extract-from-url}]]*/ '/placestracker/places/extract-from-url'
+        };
+        </script>
+        <script th:src="@{/js/google-maps-autofill.js}"></script>
+        <script th:src="@{/js/visit-management.js}"></script>
+        <script th:src="@{/js/visit-photo-upload.js}"></script>
+        <script th:inline="javascript">
+        initVisitManagement({
+            initialIndex: /*[[${place.visits != null ? place.visits.size() : 1}]]*/ 1,
+            initMaxDate: function(today) {
+                document.querySelectorAll('.visit-date-input').forEach(input => {
+                    input.max = today;
+                });
+            }
+        });
+        </script>
+    </div>
+</body>
+</html>
