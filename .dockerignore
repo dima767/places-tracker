@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Build output
+build/
+target/
+.gradle/
+*.jar
+*.war
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.local
+
+# Logs
+logs/
+*.log
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Documentation (not needed in container)
+*.md
+!CLAUDE.md
+
+# Test files (not needed in production image)
+src/test/
+
+# Scripts (not needed in container)
+*.sh
+!docker-entrypoint.sh

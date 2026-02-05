@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Google Maps URL Auto-Fill Section -->
+    <div th:fragment="autofill-section(actionText)" class="card bg-light mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-3">🗺️ Quick Fill from Google Maps</h5>
+            <p class="small text-muted mb-3" th:text="'Paste a Google Maps link to ' + ${actionText} + ' place details'">Paste a Google Maps link to auto-populate place details</p>
+            <div>
+                <label for="googleMapsUrl" class="form-label">Google Maps URL</label>
+                <div class="row g-2">
+                    <div class="col-md-8">
+                        <input type="url"
+                               class="form-control"
+                               id="googleMapsUrl"
+                               placeholder="e.g., https://maps.app.goo.gl/QgRuXqXhKskjvwWZ6">
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button"
+                                class="btn btn-primary w-100"
+                                id="fillFromUrlBtn"
+                                onclick="fillFromGoogleMapsUrl()">
+                            <span class="spinner-border spinner-border-sm me-2 d-none" id="urlLoadingSpinner"></span>
+                            Fill from URL
+                        </button>
+                    </div>
+                </div>
+                <div class="form-text" th:text="'Paste a link from Google Maps to automatically ' + ${actionText} + ' details below'">Paste a link from Google Maps to automatically fill in details below</div>
+            </div>
+            <div id="urlErrorMessage" class="alert alert-danger mt-3 d-none" role="alert"></div>
+            <div id="urlSuccessMessage" class="alert alert-success mt-3 d-none" role="alert"></div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,87 @@
+name: placestracker
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:8.0
+    container_name: placestracker-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: placestracker
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - placestracker-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/placestracker --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Places Tracker Spring Boot Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: placestracker:latest
+    container_name: placestracker-app
+    restart: unless-stopped
+    ports:
+      # HTTPS port
+      - "8443:8443"
+      # HTTP port (optional, for redirects)
+      - "8080:8080"
+    environment:
+      # Server Configuration
+      SERVER_PORT: 8443
+      SERVER_SERVLET_CONTEXT_PATH: /placestracker
+      SERVER_SSL_ENABLED: "true"
+      SERVER_SSL_KEY_STORE: file:/app/certs/placestracker-keystore.p12
+      SERVER_SSL_KEY_STORE_PASSWORD: ${CERT_PASSWORD:-placestracker-dev-cert}
+      SERVER_SSL_KEY_STORE_TYPE: PKCS12
+      SERVER_SSL_KEY_ALIAS: ${CERT_ALIAS:-placestracker-local}
+
+      # Certificate generation settings
+      CERT_PASSWORD: ${CERT_PASSWORD:-placestracker-dev-cert}
+      CERT_ALIAS: ${CERT_ALIAS:-placestracker-local}
+      CERT_HOSTS: ${CERT_HOSTS:-localhost,placestracker.local}
+      CERT_IPS: ${CERT_IPS:-127.0.0.1,0.0.0.0}
+
+      # Google Maps API Key (set in .env file)
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+
+      # MongoDB connection (Spring Boot 4.0 property: spring.mongodb.uri)
+      SPRING_MONGODB_URI: mongodb://mongodb:27017/placestracker
+
+      # Logging
+      LOGGING_LEVEL_DK_PLACESTRACKER: INFO
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_DATA_MONGODB: WARN
+
+      # Java memory settings
+      JAVA_OPTS: "-Xms512m -Xmx1g"
+    volumes:
+      # Persistent logs
+      - app_logs:/app/logs
+      # Persistent SSL certificates (generated on first run)
+      - app_certs:/app/certs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - placestracker-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+  app_logs:
+    driver: local
+  app_certs:
+    driver: local
+
+networks:
+  placestracker-network:
+    driver: bridge

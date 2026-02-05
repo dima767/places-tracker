@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Settings</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a th:href="@{/}">Home</a></li>
+                <li class="breadcrumb-item active">Settings</li>
+            </ol>
+        </nav>
+
+        <!-- Page Header -->
+        <div class="mb-4">
+            <h1 class="mb-1">Settings</h1>
+            <p class="text-muted mb-0">Configure your home base for distance calculations</p>
+        </div>
+
+        <!-- Messages -->
+        <div th:replace="~{settings/fragments :: messages}"></div>
+
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <!-- Current Location -->
+                <div th:replace="~{settings/fragments :: current-location}"></div>
+
+                <!-- Form -->
+                <div th:replace="~{settings/fragments :: form-section}"></div>
+            </div>
+
+            <!-- Help -->
+            <div class="col-lg-4">
+                <div class="card" style="border-color: var(--primary-200);">
+                    <div class="card-body">
+                        <h6 style="font-family: var(--font-display); color: var(--primary-700);">
+                            <i class="bi bi-question-circle me-2"></i>About Home Base
+                        </h6>
+                        <p class="small" style="color: var(--text-secondary);">
+                            Setting your home location enables distance calculations from your base to each place.
+                        </p>
+                        <p class="small mb-2" style="color: var(--text-tertiary);">What you'll see:</p>
+                        <ul class="small mb-3" style="color: var(--text-secondary); padding-left: 1.25rem;">
+                            <li>Distance column in places list</li>
+                            <li>Distance on place detail pages</li>
+                            <li>Distances shown in miles</li>
+                        </ul>
+                        <div class="small p-2 rounded" style="background: var(--primary-50); color: var(--primary-700);">
+                            <i class="bi bi-shield-check me-1"></i>
+                            Your location is stored privately in your database.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scripts -->
+        <script th:inline="javascript">
+        window.placesTrackerConfig = {
+            extractFromUrlEndpoint: /*[[@{/places/extract-from-url}]]*/ '/placestracker/places/extract-from-url'
+        };
+        </script>
+        <script th:src="@{/js/google-maps-autofill.js}"></script>
+        <script th:src="@{/js/settings-autofill.js}"></script>
+    </div>
+</body>
+</html>
