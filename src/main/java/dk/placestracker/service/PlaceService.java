@@ -76,4 +76,56 @@ public interface PlaceService {
      * Get total place count
      */
     long count();
+
+    // Favorites & Wishlist
+
+    /**
+     * Find all visited places (excludes wishlist items)
+     */
+    List<Place> findAllVisited();
+
+    /**
+     * Find all visited places ordered by most recent visit date
+     */
+    List<Place> findAllVisitedByMostRecentVisit();
+
+    /**
+     * Find all wishlist (TO_VISIT) places
+     */
+    List<Place> findAllWishlist();
+
+    /**
+     * Find all favorite places
+     */
+    List<Place> findFavorites();
+
+    /**
+     * Toggle the favorite flag on a place
+     */
+    Place toggleFavorite(String id);
+
+    /**
+     * Convert a wishlist item to visited status
+     */
+    Place convertToVisited(String id);
+
+    /**
+     * Search visited places only
+     */
+    List<Place> searchVisited(String searchTerm);
+
+    /**
+     * Search wishlist places only
+     */
+    List<Place> searchWishlist(String searchTerm);
+
+    /**
+     * Count wishlist places
+     */
+    long countWishlist();
+
+    /**
+     * Count favorite places
+     */
+    long countFavorites();
 }

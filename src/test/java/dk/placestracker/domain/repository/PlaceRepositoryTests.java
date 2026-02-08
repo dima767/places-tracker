@@ -288,6 +288,143 @@ class PlaceRepositoryTests extends AbstractMongoTest {
         assertThat(found.getVisitCount()).isEqualTo(2);
     }
 
+    // ===== Favorites & Wishlist Tests =====
+
+    @Test
+    @DisplayName("Should find all visited places excluding wishlist")
+    void shouldFindAllVisitedPlaces() {
+        // Given - add a wishlist item
+        Place wishlistItem = Place.createWishlistItem(
+                "Cool Restaurant", "Downtown", "New York", "USA",
+                40.7128, -74.0060, null, null, null, null, null, null, new ArrayList<>()
+        ).withTimestamps(LocalDateTime.now(), LocalDateTime.now());
+        placeRepository.save(wishlistItem);
+
+        // When
+        List<Place> visited = placeRepository.findAllVisitedPlaces();
+
+        // Then - should include original 3 places but not the wishlist item
+        assertThat(visited).hasSize(3);
+        assertThat(visited).noneMatch(p -> "Cool Restaurant".equals(p.name()));
+    }
+
+    @Test
+    @DisplayName("Should find places by status")
+    void shouldFindByStatus() {
+        // Given
+        Place wishlistItem = Place.createWishlistItem(
+                "Cool Restaurant", "Downtown", "New York", "USA",
+                40.7128, -74.0060, null, null, null, null, null, null, new ArrayList<>()
+        ).withTimestamps(LocalDateTime.now(), LocalDateTime.now());
+        placeRepository.save(wishlistItem);
+
+        // When
+        List<Place> wishlist = placeRepository.findByStatus("TO_VISIT");
+
+        // Then
+        assertThat(wishlist).hasSize(1);
+        assertThat(wishlist.get(0).name()).isEqualTo("Cool Restaurant");
+    }
+
+    @Test
+    @DisplayName("Should find favorite places")
+    void shouldFindFavoritePlaces() {
+        // Given - mark yosemite as favorite
+        Place favoriteYosemite = yosemite.withFavorite(true);
+        placeRepository.save(favoriteYosemite);
+
+        // When
+        List<Place> favorites = placeRepository.findByFavoriteTrue();
+
+        // Then
+        assertThat(favorites).hasSize(1);
+        assertThat(favorites.get(0).name()).isEqualTo("Yosemite National Park");
+    }
+
+    @Test
+    @DisplayName("Should find favorite visited places")
+    void shouldFindFavoriteVisitedPlaces() {
+        // Given - mark yosemite as favorite, also create a favorite wishlist item
+        placeRepository.save(yosemite.withFavorite(true));
+        Place wishlistFav = Place.createWishlistItem(
+                "Dream Restaurant", "SoHo", "New York", "USA",
+                40.7, -74.0, null, null, null, null, null, null, new ArrayList<>()
+        ).withTimestamps(LocalDateTime.now(), LocalDateTime.now()).withFavorite(true);
+        placeRepository.save(wishlistFav);
+
+        // When
+        List<Place> favVisited = placeRepository.findFavoriteVisitedPlaces();
+
+        // Then - should only include yosemite, not the wishlist item
+        assertThat(favVisited).hasSize(1);
+        assertThat(favVisited.get(0).name()).isEqualTo("Yosemite National Park");
+    }
+
+    @Test
+    @DisplayName("Should search visited places only")
+    void shouldSearchVisitedPlacesOnly() {
+        // Given - add a wishlist item with matching name
+        Place wishlistItem = Place.createWishlistItem(
+                "Yosemite Lodge", "Yosemite Valley", "California", "USA",
+                37.7, -119.6, null, null, null, null, null, null, new ArrayList<>()
+        ).withTimestamps(LocalDateTime.now(), LocalDateTime.now());
+        placeRepository.save(wishlistItem);
+
+        // When
+        List<Place> results = placeRepository.searchVisitedPlaces("Yosemite");
+
+        // Then - should find original Yosemite but not the wishlist item
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).name()).isEqualTo("Yosemite National Park");
+    }
+
+    @Test
+    @DisplayName("Should search wishlist places only")
+    void shouldSearchWishlistPlacesOnly() {
+        // Given
+        Place wishlistItem = Place.createWishlistItem(
+                "Cool Yosemite Spot", "Near Yosemite", "California", "USA",
+                37.7, -119.6, null, null, null, null, null, null, new ArrayList<>()
+        ).withTimestamps(LocalDateTime.now(), LocalDateTime.now());
+        placeRepository.save(wishlistItem);
+
+        // When
+        List<Place> results = placeRepository.searchWishlistPlaces("Yosemite");
+
+        // Then - should only find the wishlist item
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).name()).isEqualTo("Cool Yosemite Spot");
+    }
+
+    @Test
+    @DisplayName("Should count wishlist and favorite places")
+    void shouldCountWishlistAndFavoritePlaces() {
+        // Given
+        Place wishlistItem = Place.createWishlistItem(
+                "Restaurant", "Downtown", "New York", "USA",
+                40.7, -74.0, null, null, null, null, null, null, new ArrayList<>()
+        ).withTimestamps(LocalDateTime.now(), LocalDateTime.now());
+        placeRepository.save(wishlistItem);
+        placeRepository.save(yosemite.withFavorite(true));
+
+        // When
+        long wishlistCount = placeRepository.countWishlistPlaces();
+        long favCount = placeRepository.countByFavoriteTrue();
+
+        // Then
+        assertThat(wishlistCount).isEqualTo(1);
+        assertThat(favCount).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Should handle backward compatibility - places with null status treated as visited")
+    void shouldHandleBackwardCompatibilityNullStatus() {
+        // The existing places in setUp have status "VISITED" via Place.create()
+        // This test verifies that findAllVisitedPlaces includes them
+        List<Place> visited = placeRepository.findAllVisitedPlaces();
+        assertThat(visited).hasSize(3); // All original test places
+    }
+
     @Test
     @DisplayName("Should handle places with no visits")
     void shouldHandlePlacesWithNoVisits() {

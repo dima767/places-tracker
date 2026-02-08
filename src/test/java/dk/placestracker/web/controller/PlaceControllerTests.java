@@ -76,7 +76,8 @@ class PlaceControllerTests {
                 null, null, null, null, null, null, new ArrayList<>(),
                 LocalDateTime.of(2024, 6, 15, 10, 0),
                 LocalDateTime.of(2024, 6, 15, 10, 0),
-                null, null, null, null
+                null, null, null, null,
+                false, "VISITED"
         );
 
         // Mock reference data service to return empty lists
@@ -92,11 +93,11 @@ class PlaceControllerTests {
     }
 
     @Test
-    @DisplayName("Should list all places with pagination")
+    @DisplayName("Should list all visited places with pagination")
     void shouldListAllPlaces() throws Exception {
         // Given
         List<Place> places = Arrays.asList(testPlace);
-        when(placeService.findAll()).thenReturn(places);
+        when(placeService.findAllVisited()).thenReturn(places);
 
         // When/Then
         mockMvc.perform(get("/places"))
@@ -106,7 +107,7 @@ class PlaceControllerTests {
                 .andExpect(model().attributeExists("placePage"))
                 .andExpect(model().attribute("places", hasSize(1)));
 
-        verify(placeService).findAll();
+        verify(placeService).findAllVisited();
     }
 
     @Test
@@ -163,6 +164,8 @@ class PlaceControllerTests {
                         .param("state", "California")
                         .param("country", "USA")
                         .param("hasToilet", "false")
+                        .param("favorite", "false")
+                        .param("status", "VISITED")
                         .param("visitDate", "2024-06-15")
                         .param("notes", "Beautiful waterfalls and granite cliffs")
                         .param("latitude", "37.8651")
@@ -183,7 +186,8 @@ class PlaceControllerTests {
                         .param("location", "")
                         .param("state", "")
                         .param("country", "")
-                        .param("hasToilet", "false"))
+                        .param("hasToilet", "false")
+                        .param("favorite", "false"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("places/create"))
                 .andExpect(model().hasErrors())
@@ -209,6 +213,7 @@ class PlaceControllerTests {
                         .param("state", "California")
                         .param("country", "USA")
                         .param("hasToilet", "false")
+                        .param("favorite", "false")
                         .param("visitDate", "2024-06-15"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("places/create"))
@@ -260,6 +265,8 @@ class PlaceControllerTests {
                         .param("state", "California")
                         .param("country", "USA")
                         .param("hasToilet", "false")
+                        .param("favorite", "false")
+                        .param("status", "VISITED")
                         .param("visitDate", "2024-06-15")
                         .param("notes", "Updated notes")
                         .param("latitude", "37.8651")
@@ -280,7 +287,8 @@ class PlaceControllerTests {
                         .param("location", "")
                         .param("state", "")
                         .param("country", "")
-                        .param("hasToilet", "false"))
+                        .param("hasToilet", "false")
+                        .param("favorite", "false"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("places/edit"))
                 .andExpect(model().hasErrors());
@@ -302,6 +310,7 @@ class PlaceControllerTests {
                         .param("state", "Test State")
                         .param("country", "Test Country")
                         .param("hasToilet", "false")
+                        .param("favorite", "false")
                         .param("visitDate", "2024-06-15"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/places"))
@@ -322,6 +331,7 @@ class PlaceControllerTests {
                         .param("state", "Test State")
                         .param("country", "Test Country")
                         .param("hasToilet", "false")
+                        .param("favorite", "false")
                         .param("visitDate", "2024-06-15"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("places/edit"))
@@ -377,11 +387,11 @@ class PlaceControllerTests {
     }
 
     @Test
-    @DisplayName("Should search places with query parameter - htmx endpoint")
+    @DisplayName("Should search visited places with query parameter - htmx endpoint")
     void shouldSearchPlacesWithQuery() throws Exception {
         // Given
         List<Place> searchResults = Arrays.asList(testPlace);
-        when(placeService.search("Yosemite")).thenReturn(searchResults);
+        when(placeService.searchVisited("Yosemite")).thenReturn(searchResults);
 
         // When/Then
         mockMvc.perform(get("/places/search")
@@ -392,15 +402,15 @@ class PlaceControllerTests {
                 .andExpect(model().attribute("places", hasSize(1)))
                 .andExpect(model().attribute("places", searchResults));
 
-        verify(placeService).search("Yosemite");
+        verify(placeService).searchVisited("Yosemite");
     }
 
     @Test
-    @DisplayName("Should return all places when search query is empty - htmx endpoint")
+    @DisplayName("Should return all visited places when search query is empty - htmx endpoint")
     void shouldReturnAllPlacesWhenSearchQueryIsEmpty() throws Exception {
         // Given
         List<Place> allPlaces = Arrays.asList(testPlace);
-        when(placeService.findAll()).thenReturn(allPlaces);
+        when(placeService.findAllVisited()).thenReturn(allPlaces);
 
         // When/Then
         mockMvc.perform(get("/places/search")
@@ -411,16 +421,16 @@ class PlaceControllerTests {
                 .andExpect(model().attributeExists("placePage"))
                 .andExpect(model().attribute("places", hasSize(1)));
 
-        verify(placeService).findAll();
-        verify(placeService, never()).search(anyString());
+        verify(placeService).findAllVisited();
+        verify(placeService, never()).searchVisited(anyString());
     }
 
     @Test
-    @DisplayName("Should return all places when no query parameter provided - htmx endpoint")
+    @DisplayName("Should return all visited places when no query parameter provided - htmx endpoint")
     void shouldReturnAllPlacesWhenNoQueryParameter() throws Exception {
         // Given
         List<Place> allPlaces = Arrays.asList(testPlace);
-        when(placeService.findAll()).thenReturn(allPlaces);
+        when(placeService.findAllVisited()).thenReturn(allPlaces);
 
         // When/Then
         mockMvc.perform(get("/places/search"))
@@ -430,15 +440,15 @@ class PlaceControllerTests {
                 .andExpect(model().attributeExists("placePage"))
                 .andExpect(model().attribute("places", hasSize(1)));
 
-        verify(placeService).findAll();
-        verify(placeService, never()).search(anyString());
+        verify(placeService).findAllVisited();
+        verify(placeService, never()).searchVisited(anyString());
     }
 
     @Test
     @DisplayName("Should handle empty search results - htmx endpoint")
     void shouldHandleEmptySearchResults() throws Exception {
         // Given
-        when(placeService.search("nonexistent")).thenReturn(Collections.emptyList());
+        when(placeService.searchVisited("nonexistent")).thenReturn(Collections.emptyList());
 
         // When/Then
         mockMvc.perform(get("/places/search")
@@ -448,7 +458,7 @@ class PlaceControllerTests {
                 .andExpect(model().attributeExists("places"))
                 .andExpect(model().attribute("places", hasSize(0)));
 
-        verify(placeService).search("nonexistent");
+        verify(placeService).searchVisited("nonexistent");
     }
 
     @Test
@@ -458,14 +468,16 @@ class PlaceControllerTests {
         Place place1 = new Place("id1", "Yosemite National Park", "Location1", "California", "USA",
                 List.of(Visit.create(LocalDate.of(2024, 6, 15), 75.0, "Notes", null)),
                 false, 37.0, -119.0, null, null, null, null, null, null, new ArrayList<>(),
-                LocalDateTime.now(), LocalDateTime.now(), null, null, null, null);
+                LocalDateTime.now(), LocalDateTime.now(), null, null, null, null,
+                false, "VISITED");
         Place place2 = new Place("id2", "Yosemite Valley", "Location2", "California", "USA",
                 List.of(Visit.create(LocalDate.of(2024, 6, 16), 68.0, "Notes", null)),
                 false, 37.0, -119.0, null, null, null, null, null, null, new ArrayList<>(),
-                LocalDateTime.now(), LocalDateTime.now(), null, null, null, null);
+                LocalDateTime.now(), LocalDateTime.now(), null, null, null, null,
+                false, "VISITED");
 
         List<Place> searchResults = Arrays.asList(place1, place2);
-        when(placeService.search("Yosemite")).thenReturn(searchResults);
+        when(placeService.searchVisited("Yosemite")).thenReturn(searchResults);
 
         // When/Then
         mockMvc.perform(get("/places/search")
@@ -475,6 +487,126 @@ class PlaceControllerTests {
                 .andExpect(model().attributeExists("placePage"))
                 .andExpect(model().attribute("places", hasSize(2)));
 
-        verify(placeService).search("Yosemite");
+        verify(placeService).searchVisited("Yosemite");
+    }
+
+    // ===== Favorites & Wishlist Tests =====
+
+    @Test
+    @DisplayName("Should toggle favorite via htmx")
+    void shouldToggleFavorite() throws Exception {
+        // Given
+        Place favorited = new Place(
+                "place123", "Yosemite National Park", "Yosemite Valley", "California", "USA",
+                List.of(Visit.create(LocalDate.of(2024, 6, 15), 75.0, "Notes", null)),
+                false, 37.8651, -119.5383, null, null, null, null, null, null, new ArrayList<>(),
+                LocalDateTime.now(), LocalDateTime.now(), null, null, null, null,
+                true, "VISITED"
+        );
+        when(placeService.toggleFavorite("place123")).thenReturn(favorited);
+
+        // When/Then
+        mockMvc.perform(post("/places/place123/toggle-favorite")
+                        .header("HX-Request", "true"))
+                .andExpect(status().isOk());
+
+        verify(placeService).toggleFavorite("place123");
+    }
+
+    @Test
+    @DisplayName("Should list favorites")
+    void shouldListFavorites() throws Exception {
+        // Given
+        when(placeService.findFavorites()).thenReturn(Arrays.asList(testPlace));
+
+        // When/Then
+        mockMvc.perform(get("/places/favorites"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("places/list"))
+                .andExpect(model().attribute("listType", "favorites"));
+
+        verify(placeService).findFavorites();
+    }
+
+    @Test
+    @DisplayName("Should list wishlist")
+    void shouldListWishlist() throws Exception {
+        // Given
+        when(placeService.findAllWishlist()).thenReturn(Collections.emptyList());
+
+        // When/Then
+        mockMvc.perform(get("/places/wishlist"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("places/wishlist-list"))
+                .andExpect(model().attribute("listType", "wishlist"));
+
+        verify(placeService).findAllWishlist();
+    }
+
+    @Test
+    @DisplayName("Should show wishlist create form")
+    void shouldShowWishlistCreateForm() throws Exception {
+        // When/Then
+        mockMvc.perform(get("/places/wishlist/new"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("places/wishlist-create"))
+                .andExpect(model().attributeExists("place"));
+    }
+
+    @Test
+    @DisplayName("Should create wishlist item successfully")
+    void shouldCreateWishlistItemSuccessfully() throws Exception {
+        // Given
+        Place wishlistItem = new Place(
+                "wish123", "New Restaurant", "Downtown", "New York", "USA",
+                new ArrayList<>(), false, 40.7, -74.0, null, null, null, null, null, null, new ArrayList<>(),
+                LocalDateTime.now(), LocalDateTime.now(), null, null, null, null,
+                false, "TO_VISIT"
+        );
+        when(placeService.create(any(Place.class))).thenReturn(wishlistItem);
+
+        // When/Then
+        mockMvc.perform(post("/places/wishlist")
+                        .param("name", "New Restaurant")
+                        .param("location", "Downtown")
+                        .param("state", "New York")
+                        .param("country", "USA")
+                        .param("favorite", "false")
+                        .param("hasToilet", "false"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/places/wish123"));
+
+        verify(placeService).create(any(Place.class));
+    }
+
+    @Test
+    @DisplayName("Should convert wishlist item to visited")
+    void shouldConvertToVisited() throws Exception {
+        // Given
+        Place visited = testPlace;
+        when(placeService.convertToVisited("place123")).thenReturn(visited);
+
+        // When/Then
+        mockMvc.perform(post("/places/place123/convert-to-visited"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/places/place123/edit"))
+                .andExpect(flash().attribute("success", containsString("Moved to visited")));
+
+        verify(placeService).convertToVisited("place123");
+    }
+
+    @Test
+    @DisplayName("Should search wishlist")
+    void shouldSearchWishlist() throws Exception {
+        // Given
+        when(placeService.searchWishlist("restaurant")).thenReturn(Collections.emptyList());
+
+        // When/Then
+        mockMvc.perform(get("/places/wishlist/search")
+                        .param("q", "restaurant"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("places/wishlist-list :: places-table"));
+
+        verify(placeService).searchWishlist("restaurant");
     }
 }

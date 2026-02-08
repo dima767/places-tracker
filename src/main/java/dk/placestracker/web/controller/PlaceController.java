@@ -119,8 +119,8 @@ public class PlaceController {
         // Validate and cap page size
         int pageSize = Math.min(Math.max(size, 5), 50);
 
-        // Get all places and calculate distances
-        List<Place> allPlaces = placeService.findAll();
+        // Get visited places only (exclude wishlist) and calculate distances
+        List<Place> allPlaces = placeService.findAllVisited();
         Map<String, DistanceResult> distances = distanceService.getDistances(allPlaces);
 
         // Sort places based on sort field
@@ -141,6 +141,10 @@ public class PlaceController {
     private List<Place> sortPlaces(List<Place> places, Map<String, DistanceResult> distances,
                                    String sortField, String sortDirection) {
         Comparator<Place> comparator = switch (sortField.toLowerCase()) {
+            case "name" -> Comparator.comparing(
+                    (Place p) -> p.name(),
+                    String.CASE_INSENSITIVE_ORDER
+            );
             case "distance" -> Comparator.comparing(
                     (Place p) -> {
                         DistanceResult result = distances.get(p.id());
@@ -233,7 +237,8 @@ public class PlaceController {
                     place.googleRating(), place.googleReviewCount(),
                     googleReviews != null && !googleReviews.isEmpty() ? googleReviews : place.googleReviews(),
                     place.createdAt(), place.updatedAt(),
-                    null, null, null, null);
+                    null, null, null, null,
+                    place.favorite(), place.status());
 
             // Step 1: Create the place first (generates IDs for place and visits)
             Place savedPlace = placeService.create(place);
@@ -353,7 +358,8 @@ public class PlaceController {
                     googleReviews != null && !googleReviews.isEmpty() ? googleReviews : place.googleReviews(),
                     place.createdAt(), place.updatedAt(),
                     place.drivingDistanceMiles(), place.drivingDurationMinutes(),
-                    place.distanceCalculatedAt(), place.distanceFromHomeLatLng());
+                    place.distanceCalculatedAt(), place.distanceFromHomeLatLng(),
+                    place.favorite(), place.status());
 
             // Step 1: Update the place (generates IDs for new visits via service layer)
             Place updatedPlace = placeService.update(id, place);
@@ -455,9 +461,9 @@ public class PlaceController {
 
         List<Place> places;
         if (q == null || q.isBlank()) {
-            places = placeService.findAll();
+            places = placeService.findAllVisited();
         } else {
-            places = placeService.search(q);
+            places = placeService.searchVisited(q);
         }
 
         Map<String, DistanceResult> distances = distanceService.getDistances(places);
@@ -474,6 +480,174 @@ public class PlaceController {
         model.addAttribute("searchQuery", q);
         // Return a fragment for htmx
         return "places/list :: places-table";
+    }
+
+    // ===== Favorites =====
+
+    @PostMapping("/{id}/toggle-favorite")
+    public String toggleFavorite(@PathVariable String id,
+                                 @RequestHeader(value = "HX-Request", required = false) String hxRequest,
+                                 Model model) {
+        Place place = placeService.toggleFavorite(id);
+        model.addAttribute("place", place);
+        if ("true".equals(hxRequest)) {
+            return "places/fragments/favorite-button :: favorite-btn";
+        }
+        return "redirect:/places/" + id;
+    }
+
+    @GetMapping("/favorites")
+    public String listFavorites(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "name") String sort,
+            @RequestParam(defaultValue = "asc") String direction,
+            Model model) {
+
+        int pageSize = Math.min(Math.max(size, 5), 50);
+        List<Place> allPlaces = placeService.findFavorites();
+        Map<String, DistanceResult> distances = distanceService.getDistances(allPlaces);
+        List<Place> sortedPlaces = sortPlaces(allPlaces, distances, sort, direction);
+        PlacePage placePage = PlacePage.of(sortedPlaces, page, pageSize, sort, direction);
+
+        model.addAttribute("places", placePage.content());
+        model.addAttribute("placePage", placePage);
+        model.addAttribute("distances", distances);
+        model.addAttribute("listType", "favorites");
+        return "places/list";
+    }
+
+    @GetMapping("/favorites/search")
+    public String searchFavorites(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "name") String sort,
+            @RequestParam(defaultValue = "asc") String direction,
+            Model model) {
+
+        int pageSize = Math.min(Math.max(size, 5), 50);
+        List<Place> places;
+        if (q == null || q.isBlank()) {
+            places = placeService.findFavorites();
+        } else {
+            // Search favorites by filtering favorite visited places matching search
+            places = placeService.searchVisited(q).stream()
+                    .filter(Place::favorite)
+                    .toList();
+        }
+
+        Map<String, DistanceResult> distances = distanceService.getDistances(places);
+        List<Place> sortedPlaces = sortPlaces(places, distances, sort, direction);
+        PlacePage placePage = PlacePage.of(sortedPlaces, page, pageSize, sort, direction);
+
+        model.addAttribute("places", placePage.content());
+        model.addAttribute("placePage", placePage);
+        model.addAttribute("distances", distances);
+        model.addAttribute("searchQuery", q);
+        model.addAttribute("listType", "favorites");
+        return "places/list :: places-table";
+    }
+
+    // ===== Wishlist =====
+
+    @GetMapping("/wishlist")
+    public String listWishlist(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "name") String sort,
+            @RequestParam(defaultValue = "asc") String direction,
+            Model model) {
+
+        int pageSize = Math.min(Math.max(size, 5), 50);
+        List<Place> allPlaces = placeService.findAllWishlist();
+        Map<String, DistanceResult> distances = distanceService.getDistances(allPlaces);
+        List<Place> sortedPlaces = sortPlaces(allPlaces, distances, sort, direction);
+        PlacePage placePage = PlacePage.of(sortedPlaces, page, pageSize, sort, direction);
+
+        model.addAttribute("places", placePage.content());
+        model.addAttribute("placePage", placePage);
+        model.addAttribute("distances", distances);
+        model.addAttribute("listType", "wishlist");
+        return "places/wishlist-list";
+    }
+
+    @GetMapping("/wishlist/new")
+    public String createWishlistItemForm(Model model) {
+        model.addAttribute("place", Place.createWishlistItem("", "", "", "",
+                null, null, null, null, null, null, null, null, new ArrayList<>()));
+        return "places/wishlist-create";
+    }
+
+    @PostMapping("/wishlist")
+    public String createWishlistItem(@Valid @ModelAttribute("place") Place place,
+                                     BindingResult bindingResult,
+                                     @RequestParam(required = false) String googleReviewsJson,
+                                     RedirectAttributes redirectAttributes,
+                                     Model model) {
+        if (bindingResult.hasErrors()) {
+            return "places/wishlist-create";
+        }
+
+        try {
+            List<dk.placestracker.domain.model.Review> googleReviews = parseGoogleReviews(googleReviewsJson);
+
+            Place wishlistItem = Place.createWishlistItem(
+                    place.name(), place.location(), place.state(), place.country(),
+                    place.latitude(), place.longitude(),
+                    place.formattedAddress(), place.googlePlaceId(), place.website(), place.phoneNumber(),
+                    place.googleRating(), place.googleReviewCount(),
+                    googleReviews != null && !googleReviews.isEmpty() ? googleReviews : place.googleReviews()
+            );
+
+            Place saved = placeService.create(wishlistItem);
+            redirectAttributes.addFlashAttribute("success", "Added to wishlist!");
+            return "redirect:/places/" + saved.id();
+        } catch (Exception e) {
+            model.addAttribute("error", "Error adding to wishlist: " + e.getMessage());
+            return "places/wishlist-create";
+        }
+    }
+
+    @GetMapping("/wishlist/search")
+    public String searchWishlist(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "name") String sort,
+            @RequestParam(defaultValue = "asc") String direction,
+            Model model) {
+
+        int pageSize = Math.min(Math.max(size, 5), 50);
+        List<Place> places;
+        if (q == null || q.isBlank()) {
+            places = placeService.findAllWishlist();
+        } else {
+            places = placeService.searchWishlist(q);
+        }
+
+        Map<String, DistanceResult> distances = distanceService.getDistances(places);
+        List<Place> sortedPlaces = sortPlaces(places, distances, sort, direction);
+        PlacePage placePage = PlacePage.of(sortedPlaces, page, pageSize, sort, direction);
+
+        model.addAttribute("places", placePage.content());
+        model.addAttribute("placePage", placePage);
+        model.addAttribute("distances", distances);
+        model.addAttribute("searchQuery", q);
+        model.addAttribute("listType", "wishlist");
+        return "places/wishlist-list :: places-table";
+    }
+
+    @PostMapping("/{id}/convert-to-visited")
+    public String convertToVisited(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        try {
+            placeService.convertToVisited(id);
+            redirectAttributes.addFlashAttribute("success", "Moved to visited places! You can now add visits and photos.");
+            return "redirect:/places/" + id + "/edit";
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("error", "Place not found");
+            return "redirect:/places/wishlist";
+        }
     }
 
     @GetMapping("/states")
@@ -787,7 +961,8 @@ public class PlaceController {
                 place.googleRating(), place.googleReviewCount(), place.googleReviews(),
                 place.createdAt(), place.updatedAt(),
                 place.drivingDistanceMiles(), place.drivingDurationMinutes(),
-                place.distanceCalculatedAt(), place.distanceFromHomeLatLng()
+                place.distanceCalculatedAt(), place.distanceFromHomeLatLng(),
+                place.favorite(), place.status()
         );
     }
 

@@ -80,14 +80,20 @@ public record Place(
         LocalDateTime distanceCalculatedAt,
 
         /** Home location snapshot when distance was calculated (format: "lat,lng") */
-        String distanceFromHomeLatLng
+        String distanceFromHomeLatLng,
+
+        // Favorites & Wishlist
+        boolean favorite,
+
+        /** Place status: "VISITED" (or null for backward compat) or "TO_VISIT" */
+        String status
 ) {
     // Compact constructor for validation (optional)
     public Place {
         // Any custom validation logic can go here
     }
 
-    // Helper factory method for creating new places (without id and timestamps)
+    // Helper factory method for creating new visited places (without id and timestamps)
     public static Place create(String name, String location, String state, String country,
                               List<Visit> visits, boolean hasToilet, Double latitude, Double longitude,
                               String formattedAddress, String googlePlaceId, String website, String phoneNumber,
@@ -98,7 +104,23 @@ public record Place(
                 latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
                 googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
                 null, null,
-                null, null, null, null);
+                null, null, null, null,
+                false, "VISITED");
+    }
+
+    // Factory method for creating wishlist items (no visits, no facilities)
+    public static Place createWishlistItem(String name, String location, String state, String country,
+                                           Double latitude, Double longitude,
+                                           String formattedAddress, String googlePlaceId, String website, String phoneNumber,
+                                           Double googleRating, Integer googleReviewCount, List<Review> googleReviews) {
+        return new Place(null, name, location, state, country,
+                new ArrayList<>(),
+                false,
+                latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
+                googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
+                null, null,
+                null, null, null, null,
+                false, "TO_VISIT");
     }
 
     // Wither method for setting timestamps (used by service layer)
@@ -109,7 +131,8 @@ public record Place(
                 latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
                 googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
                 createdAt, updatedAt,
-                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng);
+                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng,
+                favorite, status);
     }
 
     // Wither method for updates (preserves createdAt, updates updatedAt)
@@ -123,7 +146,8 @@ public record Place(
                 latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
                 googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
                 createdAt, updatedAt,
-                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng);
+                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng,
+                favorite, status);
     }
 
     // Visit management helper methods
@@ -144,7 +168,8 @@ public record Place(
                 latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
                 googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
                 createdAt, updatedAt,
-                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng);
+                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng,
+                favorite, status);
     }
 
     /**
@@ -161,7 +186,8 @@ public record Place(
                 latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
                 googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
                 createdAt, updatedAt,
-                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng);
+                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng,
+                favorite, status);
     }
 
     /**
@@ -186,7 +212,8 @@ public record Place(
                 latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
                 googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
                 createdAt, updatedAt,
-                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng);
+                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng,
+                favorite, status);
     }
 
     /**
@@ -224,7 +251,8 @@ public record Place(
                 latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
                 googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
                 createdAt, updatedAt,
-                miles, durationMinutes, LocalDateTime.now(), homeLatLng);
+                miles, durationMinutes, LocalDateTime.now(), homeLatLng,
+                favorite, status);
     }
 
     /**
@@ -239,7 +267,8 @@ public record Place(
                 latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
                 googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
                 createdAt, updatedAt,
-                null, null, null, null);
+                null, null, null, null,
+                favorite, status);
     }
 
     /**
@@ -253,5 +282,39 @@ public record Place(
             return false;
         }
         return distanceFromHomeLatLng.equals(currentHomeLatLng);
+    }
+
+    // Favorite/Status withers
+
+    public Place withFavorite(boolean favorite) {
+        return new Place(id, name, location, state, country,
+                visits != null ? visits : new ArrayList<>(),
+                hasToilet,
+                latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
+                googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
+                createdAt, updatedAt,
+                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng,
+                favorite, status);
+    }
+
+    public Place withStatus(String status) {
+        return new Place(id, name, location, state, country,
+                visits != null ? visits : new ArrayList<>(),
+                hasToilet,
+                latitude, longitude, formattedAddress, googlePlaceId, website, phoneNumber,
+                googleRating, googleReviewCount, googleReviews != null ? googleReviews : new ArrayList<>(),
+                createdAt, updatedAt,
+                drivingDistanceMiles, drivingDurationMinutes, distanceCalculatedAt, distanceFromHomeLatLng,
+                favorite, status);
+    }
+
+    // Status helpers (null status treated as VISITED for backward compatibility)
+
+    public boolean isVisited() {
+        return status == null || "VISITED".equals(status);
+    }
+
+    public boolean isWishlist() {
+        return "TO_VISIT".equals(status);
     }
 }

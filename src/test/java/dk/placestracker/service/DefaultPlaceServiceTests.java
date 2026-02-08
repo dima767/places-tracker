@@ -76,7 +76,7 @@ class DefaultPlaceServiceTests {
     }
 
     @Test
-    @DisplayName("Should find all places ordered by most recent visit")
+    @DisplayName("Should find all visited places ordered by most recent visit")
     void shouldFindAllByMostRecentVisit() {
         // Given
         Place place1 = testPlace.withTimestamps(LocalDateTime.now(), LocalDateTime.now());
@@ -86,7 +86,7 @@ class DefaultPlaceServiceTests {
                 .withTimestamps(LocalDateTime.now(), LocalDateTime.now());
 
         List<Place> places = Arrays.asList(place1, place2);
-        when(placeRepository.findAll()).thenReturn(places);
+        when(placeRepository.findAllVisitedPlaces()).thenReturn(places);
 
         // When
         List<Place> result = placeService.findAllByMostRecentVisit();
@@ -96,7 +96,7 @@ class DefaultPlaceServiceTests {
         // place2 should be first (July 1 is more recent than June 15)
         assertThat(result.get(0)).isEqualTo(place2);
         assertThat(result.get(1)).isEqualTo(place1);
-        verify(placeRepository).findAll();
+        verify(placeRepository).findAllVisitedPlaces();
     }
 
     @Test
@@ -132,7 +132,8 @@ class DefaultPlaceServiceTests {
                 savedPlace.formattedAddress(), savedPlace.googlePlaceId(), savedPlace.website(),
                 savedPlace.phoneNumber(), savedPlace.googleRating(), savedPlace.googleReviewCount(),
                 new ArrayList<>(), savedPlace.createdAt(), savedPlace.updatedAt(),
-                null, null, null, null);
+                null, null, null, null,
+                false, "VISITED");
         when(placeRepository.findById(placeId)).thenReturn(Optional.of(placeWithId));
 
         // When
@@ -188,7 +189,8 @@ class DefaultPlaceServiceTests {
                 new ArrayList<>(),
                 LocalDateTime.of(2024, 6, 15, 10, 0),
                 LocalDateTime.of(2024, 6, 15, 10, 0),
-                null, null, null, null);
+                null, null, null, null,
+                false, "VISITED");
 
         Place updatedData = Place.create("Updated Name", "Updated Location",
                 "California", "USA",
@@ -237,7 +239,8 @@ class DefaultPlaceServiceTests {
                 new ArrayList<>(),
                 LocalDateTime.of(2024, 6, 15, 10, 0),
                 LocalDateTime.of(2024, 6, 15, 10, 0),
-                null, null, null, null);
+                null, null, null, null,
+                false, "VISITED");
         when(placeRepository.findById(placeId)).thenReturn(Optional.of(placeToDelete));
         doNothing().when(placeRepository).deleteById(placeId);
 
@@ -395,5 +398,139 @@ class DefaultPlaceServiceTests {
         // Then
         assertThat(count).isEqualTo(15L);
         verify(placeRepository).count();
+    }
+
+    // ===== Favorites & Wishlist Tests =====
+
+    @Test
+    @DisplayName("Should find all visited places")
+    void shouldFindAllVisited() {
+        // Given
+        when(placeRepository.findAllVisitedPlaces()).thenReturn(List.of(savedPlace));
+
+        // When
+        List<Place> result = placeService.findAllVisited();
+
+        // Then
+        assertThat(result).hasSize(1);
+        verify(placeRepository).findAllVisitedPlaces();
+    }
+
+    @Test
+    @DisplayName("Should find all wishlist places")
+    void shouldFindAllWishlist() {
+        // Given
+        when(placeRepository.findByStatus("TO_VISIT")).thenReturn(List.of());
+
+        // When
+        List<Place> result = placeService.findAllWishlist();
+
+        // Then
+        assertThat(result).isEmpty();
+        verify(placeRepository).findByStatus("TO_VISIT");
+    }
+
+    @Test
+    @DisplayName("Should find favorite places")
+    void shouldFindFavorites() {
+        // Given
+        when(placeRepository.findFavoriteVisitedPlaces()).thenReturn(List.of(savedPlace));
+
+        // When
+        List<Place> result = placeService.findFavorites();
+
+        // Then
+        assertThat(result).hasSize(1);
+        verify(placeRepository).findFavoriteVisitedPlaces();
+    }
+
+    @Test
+    @DisplayName("Should toggle favorite on a place")
+    void shouldToggleFavorite() {
+        // Given
+        String placeId = "place123";
+        Place placeWithId = new Place(placeId, savedPlace.name(), savedPlace.location(),
+                savedPlace.state(), savedPlace.country(), savedPlace.visits(),
+                savedPlace.hasToilet(), savedPlace.latitude(), savedPlace.longitude(),
+                savedPlace.formattedAddress(), savedPlace.googlePlaceId(), savedPlace.website(),
+                savedPlace.phoneNumber(), savedPlace.googleRating(), savedPlace.googleReviewCount(),
+                new ArrayList<>(), savedPlace.createdAt(), savedPlace.updatedAt(),
+                null, null, null, null,
+                false, "VISITED");
+        when(placeRepository.findById(placeId)).thenReturn(Optional.of(placeWithId));
+        when(placeRepository.save(any(Place.class))).thenAnswer(i -> i.getArgument(0));
+
+        // When
+        Place result = placeService.toggleFavorite(placeId);
+
+        // Then
+        assertThat(result.favorite()).isTrue();
+        verify(placeRepository).save(any(Place.class));
+    }
+
+    @Test
+    @DisplayName("Should convert wishlist item to visited")
+    void shouldConvertToVisited() {
+        // Given
+        String placeId = "wish123";
+        Place wishlistPlace = new Place(placeId, "Restaurant", "Downtown", "NY", "USA",
+                new ArrayList<>(), false, 40.7, -74.0,
+                null, null, null, null, null, null, new ArrayList<>(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, null, null,
+                false, "TO_VISIT");
+        when(placeRepository.findById(placeId)).thenReturn(Optional.of(wishlistPlace));
+        when(placeRepository.save(any(Place.class))).thenAnswer(i -> i.getArgument(0));
+
+        // When
+        Place result = placeService.convertToVisited(placeId);
+
+        // Then
+        assertThat(result.status()).isEqualTo("VISITED");
+        assertThat(result.isVisited()).isTrue();
+        assertThat(result.isWishlist()).isFalse();
+        verify(placeRepository).save(any(Place.class));
+    }
+
+    @Test
+    @DisplayName("Should search visited places")
+    void shouldSearchVisitedPlaces() {
+        // Given
+        when(placeRepository.searchVisitedPlaces("Yosemite")).thenReturn(List.of(savedPlace));
+
+        // When
+        List<Place> result = placeService.searchVisited("Yosemite");
+
+        // Then
+        assertThat(result).hasSize(1);
+        verify(placeRepository).searchVisitedPlaces("Yosemite");
+    }
+
+    @Test
+    @DisplayName("Should count wishlist places")
+    void shouldCountWishlistPlaces() {
+        // Given
+        when(placeRepository.countWishlistPlaces()).thenReturn(5L);
+
+        // When
+        long count = placeService.countWishlist();
+
+        // Then
+        assertThat(count).isEqualTo(5L);
+        verify(placeRepository).countWishlistPlaces();
+    }
+
+    @Test
+    @DisplayName("Should count favorite places")
+    void shouldCountFavoritePlaces() {
+        // Given
+        when(placeRepository.countByFavoriteTrue()).thenReturn(3L);
+
+        // When
+        long count = placeService.countFavorites();
+
+        // Then
+        assertThat(count).isEqualTo(3L);
+        verify(placeRepository).countByFavoriteTrue();
     }
 }

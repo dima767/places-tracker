@@ -36,7 +36,7 @@ public class DefaultPlaceService implements PlaceService {
     @Override
     @Transactional(readOnly = true)
     public List<Place> findAllByMostRecentVisit() {
-        List<Place> places = placeRepository.findAll();
+        List<Place> places = placeRepository.findAllVisitedPlaces();
         // Sort by most recent visit date (descending)
         places.sort((p1, p2) -> {
             var v1 = p1.getMostRecentVisit();
@@ -184,5 +184,90 @@ public class DefaultPlaceService implements PlaceService {
     @Transactional(readOnly = true)
     public long count() {
         return placeRepository.count();
+    }
+
+    // Favorites & Wishlist
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Place> findAllVisited() {
+        return placeRepository.findAllVisitedPlaces();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Place> findAllVisitedByMostRecentVisit() {
+        List<Place> places = placeRepository.findAllVisitedPlaces();
+        places.sort((p1, p2) -> {
+            var v1 = p1.getMostRecentVisit();
+            var v2 = p2.getMostRecentVisit();
+            if (v1.isEmpty() && v2.isEmpty()) return 0;
+            if (v1.isEmpty()) return 1;
+            if (v2.isEmpty()) return -1;
+            return v2.get().date().compareTo(v1.get().date());
+        });
+        return places;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Place> findAllWishlist() {
+        return placeRepository.findByStatus("TO_VISIT");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Place> findFavorites() {
+        return placeRepository.findFavoriteVisitedPlaces();
+    }
+
+    @Override
+    public Place toggleFavorite(String id) {
+        return placeRepository.findById(id)
+                .map(place -> {
+                    Place toggled = place.withFavorite(!place.favorite());
+                    return placeRepository.save(toggled);
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Place not found with id: " + id));
+    }
+
+    @Override
+    public Place convertToVisited(String id) {
+        return placeRepository.findById(id)
+                .map(place -> {
+                    Place visited = place.withStatus("VISITED");
+                    return placeRepository.save(visited);
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Place not found with id: " + id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Place> searchVisited(String searchTerm) {
+        if (searchTerm == null || searchTerm.isBlank()) {
+            return findAllVisited();
+        }
+        return placeRepository.searchVisitedPlaces(searchTerm.trim());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Place> searchWishlist(String searchTerm) {
+        if (searchTerm == null || searchTerm.isBlank()) {
+            return findAllWishlist();
+        }
+        return placeRepository.searchWishlistPlaces(searchTerm.trim());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countWishlist() {
+        return placeRepository.countWishlistPlaces();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countFavorites() {
+        return placeRepository.countByFavoriteTrue();
     }
 }
