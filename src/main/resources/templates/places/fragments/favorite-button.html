@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- Favorite toggle button fragment - swapped via htmx -->
+<button th:fragment="favorite-btn"
+        class="btn btn-sm"
+        th:classappend="${place.favorite()} ? 'btn-warning' : 'btn-outline-secondary'"
+        th:hx-post="@{/places/{id}/toggle-favorite(id=${place.id})}"
+        hx-target="this"
+        hx-swap="outerHTML"
+        th:title="${place.favorite()} ? 'Remove from favorites' : 'Add to favorites'">
+    <i class="bi" th:classappend="${place.favorite()} ? 'bi-star-fill' : 'bi-star'"></i>
+</button>
+</html>

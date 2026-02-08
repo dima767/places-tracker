@@ -26,13 +26,15 @@ public class HomeController {
     @GetMapping("/")
     public String home(Model model) {
         Settings settings = settingsService.getSettings();
-        var recentPlaces = placeService.findAllByMostRecentVisit().stream().limit(6).toList();
-        long totalVisits = placeService.findAll().stream()
+        var recentPlaces = placeService.findAllVisitedByMostRecentVisit().stream().limit(6).toList();
+        long totalVisits = placeService.findAllVisited().stream()
             .mapToLong(place -> place.visits() != null ? place.visits().size() : 0)
             .sum();
-        model.addAttribute("totalPlaces", placeService.count());
+        model.addAttribute("totalPlaces", placeService.findAllVisited().size());
         model.addAttribute("totalVisits", totalVisits);
         model.addAttribute("recentPlaces", recentPlaces);
+        model.addAttribute("wishlistCount", placeService.countWishlist());
+        model.addAttribute("favoritesCount", placeService.countFavorites());
         model.addAttribute("homeLocationSet", settings.hasHomeLocation());
         return "index";
     }

@@ -137,6 +137,9 @@
         <input type="hidden" id="googleReviewCount" th:field="*{googleReviewCount}">
         <!-- Google reviews will be stored as JSON string -->
         <input type="hidden" id="googleReviewsJson" name="googleReviewsJson">
+        <!-- Favorite and status (preserved through form submissions) -->
+        <input type="hidden" th:field="*{favorite}">
+        <input type="hidden" th:field="*{status}">
     </div>
 
     <!-- Coordinates Fields -->

@@ -60,25 +60,28 @@ class HomeControllerTests {
 
         List<Place> recentPlaces = Arrays.asList(place1, place2);
 
-        when(placeService.count()).thenReturn(10L);
-        when(placeService.findAllByMostRecentVisit()).thenReturn(recentPlaces);
+        when(placeService.findAllVisited()).thenReturn(recentPlaces);
+        when(placeService.findAllVisitedByMostRecentVisit()).thenReturn(recentPlaces);
+        when(placeService.countWishlist()).thenReturn(3L);
+        when(placeService.countFavorites()).thenReturn(1L);
 
         // When/Then
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("index"))
                 .andExpect(model().attributeExists("totalPlaces"))
-                .andExpect(model().attribute("totalPlaces", 10L))
+                .andExpect(model().attribute("totalPlaces", 2))
                 .andExpect(model().attributeExists("recentPlaces"))
-                .andExpect(model().attribute("recentPlaces", hasSize(2)));
+                .andExpect(model().attribute("recentPlaces", hasSize(2)))
+                .andExpect(model().attribute("wishlistCount", 3L))
+                .andExpect(model().attribute("favoritesCount", 1L));
 
-        verify(placeService).count();
-        verify(placeService).findAllByMostRecentVisit();
+        verify(placeService).findAllVisitedByMostRecentVisit();
     }
 
     @Test
-    @DisplayName("Should limit recent places to 5")
-    void shouldLimitRecentPlacesToFive() throws Exception {
+    @DisplayName("Should limit recent places to 6")
+    void shouldLimitRecentPlacesToSix() throws Exception {
         // Given
         List<Place> manyPlaces = Arrays.asList(
                 createTestPlace("Place 1", LocalDate.of(2024, 1, 1)),
@@ -90,8 +93,10 @@ class HomeControllerTests {
                 createTestPlace("Place 7", LocalDate.of(2024, 7, 1))
         );
 
-        when(placeService.count()).thenReturn(7L);
-        when(placeService.findAllByMostRecentVisit()).thenReturn(manyPlaces);
+        when(placeService.findAllVisited()).thenReturn(manyPlaces);
+        when(placeService.findAllVisitedByMostRecentVisit()).thenReturn(manyPlaces);
+        when(placeService.countWishlist()).thenReturn(0L);
+        when(placeService.countFavorites()).thenReturn(0L);
 
         // When/Then
         mockMvc.perform(get("/"))
@@ -99,26 +104,26 @@ class HomeControllerTests {
                 .andExpect(view().name("index"))
                 .andExpect(model().attribute("recentPlaces", hasSize(6)));
 
-        verify(placeService).count();
-        verify(placeService).findAllByMostRecentVisit();
+        verify(placeService).findAllVisitedByMostRecentVisit();
     }
 
     @Test
     @DisplayName("Should handle empty place list")
     void shouldHandleEmptyPlaceList() throws Exception {
         // Given
-        when(placeService.count()).thenReturn(0L);
-        when(placeService.findAllByMostRecentVisit()).thenReturn(Collections.emptyList());
+        when(placeService.findAllVisited()).thenReturn(Collections.emptyList());
+        when(placeService.findAllVisitedByMostRecentVisit()).thenReturn(Collections.emptyList());
+        when(placeService.countWishlist()).thenReturn(0L);
+        when(placeService.countFavorites()).thenReturn(0L);
 
         // When/Then
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("index"))
-                .andExpect(model().attribute("totalPlaces", 0L))
+                .andExpect(model().attribute("totalPlaces", 0))
                 .andExpect(model().attribute("recentPlaces", hasSize(0)));
 
-        verify(placeService).count();
-        verify(placeService).findAllByMostRecentVisit();
+        verify(placeService).findAllVisitedByMostRecentVisit();
     }
 
     @Test
@@ -128,18 +133,19 @@ class HomeControllerTests {
         Place place = createTestPlace("Yosemite", LocalDate.of(2024, 6, 15));
         List<Place> singlePlace = Collections.singletonList(place);
 
-        when(placeService.count()).thenReturn(1L);
-        when(placeService.findAllByMostRecentVisit()).thenReturn(singlePlace);
+        when(placeService.findAllVisited()).thenReturn(singlePlace);
+        when(placeService.findAllVisitedByMostRecentVisit()).thenReturn(singlePlace);
+        when(placeService.countWishlist()).thenReturn(0L);
+        when(placeService.countFavorites()).thenReturn(0L);
 
         // When/Then
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("index"))
-                .andExpect(model().attribute("totalPlaces", 1L))
+                .andExpect(model().attribute("totalPlaces", 1))
                 .andExpect(model().attribute("recentPlaces", hasSize(1)));
 
-        verify(placeService).count();
-        verify(placeService).findAllByMostRecentVisit();
+        verify(placeService).findAllVisitedByMostRecentVisit();
     }
 
     private Place createTestPlace(String name, LocalDate visitDate) {

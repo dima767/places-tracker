@@ -43,4 +43,49 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
 
     // Count places by country
     long countByCountryIgnoreCase(String country);
+
+    // Favorites & Wishlist queries
+
+    // Find all visited places (status null for backward compat, or "VISITED")
+    @Query("{ $or: [ { 'status': null }, { 'status': 'VISITED' } ] }")
+    List<Place> findAllVisitedPlaces();
+
+    // Find places by status (e.g., "TO_VISIT" for wishlist)
+    List<Place> findByStatus(String status);
+
+    // Find all favorite places
+    List<Place> findByFavoriteTrue();
+
+    // Find favorite visited places
+    @Query("{ 'favorite': true, $or: [ { 'status': null }, { 'status': 'VISITED' } ] }")
+    List<Place> findFavoriteVisitedPlaces();
+
+    // Search visited places only
+    @Query("{ $and: [ " +
+           "{ $or: [ { 'status': null }, { 'status': 'VISITED' } ] }, " +
+           "{ $or: [ " +
+           "  { 'name': { $regex: ?0, $options: 'i' } }, " +
+           "  { 'location': { $regex: ?0, $options: 'i' } }, " +
+           "  { 'state': { $regex: ?0, $options: 'i' } } " +
+           "] } " +
+           "] }")
+    List<Place> searchVisitedPlaces(String searchTerm);
+
+    // Search wishlist places only
+    @Query("{ $and: [ " +
+           "{ 'status': 'TO_VISIT' }, " +
+           "{ $or: [ " +
+           "  { 'name': { $regex: ?0, $options: 'i' } }, " +
+           "  { 'location': { $regex: ?0, $options: 'i' } }, " +
+           "  { 'state': { $regex: ?0, $options: 'i' } } " +
+           "] } " +
+           "] }")
+    List<Place> searchWishlistPlaces(String searchTerm);
+
+    // Count wishlist places
+    @Query(value = "{ 'status': 'TO_VISIT' }", count = true)
+    long countWishlistPlaces();
+
+    // Count favorite places
+    long countByFavoriteTrue();
 }

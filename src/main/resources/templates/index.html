@@ -33,16 +33,16 @@
 
         <!-- Stats Grid -->
         <div class="row g-4 mb-4">
-            <div class="col-md-4">
+            <div class="col-md-4 col-lg">
                 <div class="stat-card">
-                    <div class="stat-label">Total Places</div>
+                    <div class="stat-label">Visited Places</div>
                     <div class="stat-value" th:text="${totalPlaces}">0</div>
                     <a th:href="@{/places}" class="stat-indicator positive">
                         View all <i class="bi bi-arrow-right"></i>
                     </a>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-4 col-lg">
                 <div class="stat-card">
                     <div class="stat-label">Total Visits</div>
                     <div class="stat-value" th:text="${totalVisits != null ? totalVisits : 0}">0</div>
@@ -51,7 +51,25 @@
                     </span>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-4 col-lg">
+                <div class="stat-card">
+                    <div class="stat-label">Wishlist</div>
+                    <div class="stat-value" th:text="${wishlistCount != null ? wishlistCount : 0}">0</div>
+                    <a th:href="@{/places/wishlist}" class="stat-indicator positive">
+                        <i class="bi bi-bookmark-star"></i> View list
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg">
+                <div class="stat-card">
+                    <div class="stat-label">Favorites</div>
+                    <div class="stat-value" th:text="${favoritesCount != null ? favoritesCount : 0}">0</div>
+                    <a th:href="@{/places/favorites}" class="stat-indicator positive">
+                        <i class="bi bi-star-fill"></i> View all
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg">
                 <div class="stat-card">
                     <div class="stat-label">Home Base</div>
                     <div th:if="${homeLocationSet}">

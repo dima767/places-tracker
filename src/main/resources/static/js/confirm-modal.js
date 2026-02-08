@@ -49,6 +49,23 @@ const ConfirmModal = {
             type: 'warning'
         },
 
+        // Wishlist-related
+        'convert-to-visited': {
+            title: 'Mark as Visited',
+            message: 'Move this place from your wishlist to visited places? You can then add visits and photos.',
+            confirmText: 'Mark Visited',
+            cancelText: 'Cancel',
+            type: 'info'
+        },
+
+        'delete-wishlist-item': {
+            title: 'Remove from Wishlist',
+            message: 'Are you sure you want to remove this place from your wishlist?',
+            confirmText: 'Remove',
+            cancelText: 'Cancel',
+            type: 'danger'
+        },
+
         // Generic confirmations
         'unsaved-changes': {
             title: 'Unsaved Changes',

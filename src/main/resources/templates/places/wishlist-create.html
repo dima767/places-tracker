@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Add to Wishlist</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a th:href="@{/}">Home</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/places/wishlist}">Wishlist</a></li>
+                <li class="breadcrumb-item active">Add to Wishlist</li>
+            </ol>
+        </nav>
+
+        <h1 class="mb-4"><i class="bi bi-bookmark-star me-2" style="color: var(--primary-500);"></i>Add to Wishlist</h1>
+
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <!-- Google Maps Auto-Fill -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-lightning me-2"></i>Quick Fill from Google Maps
+                    </div>
+                    <div class="card-body">
+                        <div th:replace="~{places/fragments/google-maps-autofill :: autofill-section('auto-populate')}"></div>
+                    </div>
+                </div>
+
+                <!-- Main Form -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-pencil-square me-2"></i>Place Details
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/places/wishlist}" th:object="${place}" method="post" id="wishlist-create-form">
+                            <input type="hidden" th:field="*{id}">
+
+                            <!-- Basic Info -->
+                            <div th:replace="~{places/fragments/place-form-fields :: basic-info}"></div>
+
+                            <!-- Country/State -->
+                            <div th:replace="~{places/fragments/place-form-fields :: country-state-create}"></div>
+
+                            <!-- Google Data (hidden) -->
+                            <div th:replace="~{places/fragments/place-form-fields :: google-data-fields}"></div>
+
+                            <!-- Coordinates -->
+                            <div th:replace="~{places/fragments/place-form-fields :: coordinates}"></div>
+
+                            <!-- Actions -->
+                            <hr class="my-4">
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-bookmark-star me-1"></i>Add to Wishlist
+                                </button>
+                                <a th:href="@{/places/wishlist}" class="btn btn-secondary">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="card" style="border-color: var(--primary-200);">
+                    <div class="card-body">
+                        <h6 style="font-family: var(--font-display); color: var(--primary-700);">
+                            <i class="bi bi-lightbulb me-2"></i>Tips
+                        </h6>
+                        <ul class="small mb-0" style="color: var(--text-secondary); padding-left: 1.25rem;">
+                            <li class="mb-2">Paste a Google Maps URL to auto-fill most fields</li>
+                            <li class="mb-2">Fields with <span class="text-danger">*</span> are required</li>
+                            <li class="mb-2">You can add visits and photos later when you mark this as visited</li>
+                            <li>Wishlist items appear in a separate list from your visited places</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scripts -->
+        <script th:inline="javascript">
+        window.placesTrackerConfig = {
+            extractFromUrlEndpoint: /*[[@{/places/extract-from-url}]]*/ '/placestracker/places/extract-from-url'
+        };
+        </script>
+        <script th:src="@{/js/google-maps-autofill.js}"></script>
+    </div>
+</body>
+</html>

@@ -18,11 +18,19 @@
                     <span class="detail-sticky-bar-name" th:text="${place.name}">Place Name</span>
                 </div>
                 <div class="detail-sticky-bar-actions">
-                    <a th:href="@{/places/{id}/edit(id=${place.id})}" class="btn btn-outline-success btn-sm">
+                    <div th:replace="~{places/fragments/favorite-button :: favorite-btn}"></div>
+                    <a th:if="${place.isWishlist()}" th:href="@{/places/{id}/edit(id=${place.id})}" class="btn btn-outline-success btn-sm" style="display: none;"></a>
+                    <a th:unless="${place.isWishlist()}" th:href="@{/places/{id}/edit(id=${place.id})}" class="btn btn-outline-success btn-sm">
                         <i class="bi bi-pencil"></i><span class="btn-text ms-1">Edit</span>
                     </a>
+                    <form th:if="${place.isWishlist()}" th:action="@{/places/{id}/convert-to-visited(id=${place.id})}" method="post" style="display: inline;"
+                          data-confirm="convert-to-visited">
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="bi bi-check-lg"></i><span class="btn-text ms-1">Mark Visited</span>
+                        </button>
+                    </form>
                     <form th:action="@{/places/{id}/delete(id=${place.id})}" method="post" style="display: inline;"
-                          data-confirm="delete-place">
+                          th:attr="data-confirm=${place.isWishlist()} ? 'delete-wishlist-item' : 'delete-place'">
                         <button type="submit" class="btn btn-outline-danger btn-sm">
                             <i class="bi bi-trash"></i><span class="btn-text ms-1">Delete</span>
                         </button>
@@ -42,7 +50,15 @@
 
         <!-- Place Header -->
         <div class="mb-4">
-            <h1 class="mb-2" th:text="${place.name}">Place Name</h1>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <h1 class="mb-0" th:text="${place.name}">Place Name</h1>
+                <span th:if="${place.isWishlist()}" class="badge bg-info">
+                    <i class="bi bi-bookmark-star me-1"></i>Wishlist
+                </span>
+                <span th:if="${place.favorite()}" class="badge bg-warning text-dark">
+                    <i class="bi bi-star-fill me-1"></i>Favorite
+                </span>
+            </div>
             <p class="lead mb-0">
                 <i class="bi bi-geo-alt me-1"></i>
                 <span th:text="${place.location}">Location</span>,
@@ -116,8 +132,23 @@
                     </div>
                 </div>
 
-                <!-- Visit History -->
-                <div class="card">
+                <!-- Wishlist CTA (only for wishlist items) -->
+                <div th:if="${place.isWishlist()}" class="card mb-4" style="border-color: var(--primary-200);">
+                    <div class="card-body text-center py-4">
+                        <i class="bi bi-bookmark-star" style="font-size: 2rem; color: var(--primary-500);"></i>
+                        <h5 class="mt-2">This place is on your wishlist</h5>
+                        <p class="text-muted mb-3">Ready to visit? Mark it as visited to start tracking your trips.</p>
+                        <form th:action="@{/places/{id}/convert-to-visited(id=${place.id})}" method="post" style="display: inline;"
+                              data-confirm="convert-to-visited">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-lg me-1"></i>Mark as Visited
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Visit History (hidden for wishlist items) -->
+                <div th:unless="${place.isWishlist()}" class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-calendar-event me-2"></i>Visit History</span>
                         <span class="badge bg-success" th:text="${place.visitCount}">0</span>

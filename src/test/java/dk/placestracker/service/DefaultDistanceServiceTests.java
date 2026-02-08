@@ -70,7 +70,8 @@ class DefaultDistanceServiceTests {
                 new ArrayList<>(), false, lat, lng,
                 null, null, null, null, null, null, new ArrayList<>(),
                 LocalDateTime.now(), LocalDateTime.now(),
-                null, null, null, null
+                null, null, null, null,
+                false, "VISITED"
         );
     }
 
@@ -81,7 +82,8 @@ class DefaultDistanceServiceTests {
                 new ArrayList<>(), false, lat, lng,
                 null, null, null, null, null, null, new ArrayList<>(),
                 LocalDateTime.now(), LocalDateTime.now(),
-                cachedMiles, cachedMinutes, LocalDateTime.now(), cachedHomeLatLng
+                cachedMiles, cachedMinutes, LocalDateTime.now(), cachedHomeLatLng,
+                false, "VISITED"
         );
     }
 
@@ -118,7 +120,8 @@ class DefaultDistanceServiceTests {
                     new ArrayList<>(), false, null, null,
                     null, null, null, null, null, null, new ArrayList<>(),
                     LocalDateTime.now(), LocalDateTime.now(),
-                    null, null, null, null
+                    null, null, null, null,
+                    false, "VISITED"
             );
 
             // When
@@ -229,7 +232,8 @@ class DefaultDistanceServiceTests {
                     new ArrayList<>(), false, null, null,
                     null, null, null, null, null, null, new ArrayList<>(),
                     LocalDateTime.now(), LocalDateTime.now(),
-                    null, null, null, null
+                    null, null, null, null,
+                    false, "VISITED"
             );
 
             // When
