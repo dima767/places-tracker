@@ -18,7 +18,9 @@
                     <span class="detail-sticky-bar-name" th:text="${place.name}">Place Name</span>
                 </div>
                 <div class="detail-sticky-bar-actions">
-                    <div th:unless="${place.isWishlist()}" th:replace="~{places/fragments/favorite-button :: favorite-btn}"></div>
+                    <th:block th:unless="${place.isWishlist()}">
+                        <div th:replace="~{places/fragments/favorite-button :: favorite-btn}"></div>
+                    </th:block>
                     <a th:if="${place.isWishlist()}" th:href="@{/places/{id}/edit(id=${place.id})}" class="btn btn-outline-success btn-sm" style="display: none;"></a>
                     <a th:unless="${place.isWishlist()}" th:href="@{/places/{id}/edit(id=${place.id})}" class="btn btn-outline-success btn-sm">
                         <i class="bi bi-pencil"></i><span class="btn-text ms-1">Edit</span>
@@ -55,7 +57,7 @@
                 <span th:if="${place.isWishlist()}" class="badge bg-info">
                     <i class="bi bi-bookmark-star me-1"></i>Wishlist
                 </span>
-                <span id="favorite-badge">
+                <span th:unless="${place.isWishlist()}" id="favorite-badge">
                     <span th:if="${place.favorite()}" class="badge bg-warning text-dark">
                         <i class="bi bi-star-fill me-1"></i>Favorite
                     </span>

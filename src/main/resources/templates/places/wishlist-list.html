@@ -165,9 +165,9 @@
                                     <span th:unless="${place.googleRating != null}" class="small text-muted">--</span>
                                 </td>
                                 <td class="text-end">
-                                    <div class="btn-group btn-group-sm">
+                                    <div class="action-btns">
                                         <a th:href="@{/places/{id}(id=${place.id})}"
-                                           class="btn btn-outline-success"
+                                           class="btn btn-sm btn-outline-success"
                                            title="View">
                                             <i class="bi bi-eye"></i>
                                         </a>
@@ -176,7 +176,7 @@
                                               style="display: inline;"
                                               data-confirm="convert-to-visited">
                                             <button type="submit"
-                                                    class="btn btn-outline-primary"
+                                                    class="btn btn-sm btn-outline-primary"
                                                     title="Mark as Visited">
                                                 <i class="bi bi-check-lg"></i>
                                             </button>
@@ -186,7 +186,7 @@
                                               style="display: inline;"
                                               data-confirm="delete-wishlist-item">
                                             <button type="submit"
-                                                    class="btn btn-outline-danger"
+                                                    class="btn btn-sm btn-outline-danger"
                                                     title="Remove from Wishlist">
                                                 <i class="bi bi-trash"></i>
                                             </button>
