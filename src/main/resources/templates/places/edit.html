@@ -72,6 +72,7 @@
                     <div class="card-body">
                         <form th:action="@{/places/{id}(id=${place.id})}" th:object="${place}" method="post" id="place-edit-form">
                             <input type="hidden" id="place-id-field" th:value="${place.id}" readonly>
+                            <input th:if="${convertToVisited}" type="hidden" name="convertToVisited" value="true">
 
                             <!-- Basic Info -->
                             <div th:replace="~{places/fragments/place-form-fields :: basic-info}"></div>

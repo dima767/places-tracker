@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<!-- Favorite toggle button fragment - swapped via htmx -->
+<!-- Favorite toggle button - for initial page render -->
 <button th:fragment="favorite-btn"
         class="btn btn-sm"
         th:classappend="${place.favorite()} ? 'btn-warning' : 'btn-outline-secondary'"
@@ -9,5 +9,33 @@
         hx-swap="outerHTML"
         th:title="${place.favorite()} ? 'Remove from favorites' : 'Add to favorites'">
     <i class="bi" th:classappend="${place.favorite()} ? 'bi-star-fill' : 'bi-star'"></i>
+</button>
+
+<!-- Favorite toggle htmx response - includes OOB badge update for detail page -->
+<th:block th:fragment="favorite-toggle">
+    <button class="btn btn-sm"
+            th:classappend="${place.favorite()} ? 'btn-warning' : 'btn-outline-secondary'"
+            th:hx-post="@{/places/{id}/toggle-favorite(id=${place.id})}"
+            hx-target="this"
+            hx-swap="outerHTML"
+            th:title="${place.favorite()} ? 'Remove from favorites' : 'Add to favorites'">
+        <i class="bi" th:classappend="${place.favorite()} ? 'bi-star-fill' : 'bi-star'"></i>
+    </button>
+    <span id="favorite-badge" hx-swap-oob="true">
+        <span th:if="${place.favorite()}" class="badge bg-warning text-dark">
+            <i class="bi bi-star-fill me-1"></i>Favorite
+        </span>
+    </span>
+</th:block>
+
+<!-- Favorite remove button - for favorites list (re-renders full table on unfavorite) -->
+<button th:fragment="favorite-btn-remove"
+        class="btn btn-sm btn-warning"
+        th:hx-post="@{/places/{id}/toggle-favorite(id=${place.id})}"
+        hx-target="#places-table"
+        hx-swap="outerHTML"
+        hx-vals='{"context": "favorites"}'
+        title="Remove from favorites">
+    <i class="bi bi-star-fill"></i>
 </button>
 </html>

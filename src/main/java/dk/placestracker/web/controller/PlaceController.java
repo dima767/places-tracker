@@ -308,12 +308,15 @@ public class PlaceController {
     }
 
     @GetMapping("/{id}/edit")
-    public String editPlaceForm(@PathVariable String id, Model model, RedirectAttributes redirectAttributes) {
+    public String editPlaceForm(@PathVariable String id,
+                                @RequestParam(required = false) boolean convertToVisited,
+                                Model model, RedirectAttributes redirectAttributes) {
         return placeService.findById(id)
                 .map(place -> {
                     // Clean up any missing photos before editing
                     Place cleanedPlace = cleanupMissingPhotos(place);
                     model.addAttribute("place", cleanedPlace);
+                    model.addAttribute("convertToVisited", convertToVisited);
                     return "places/edit";
                 })
                 .orElseGet(() -> {
@@ -327,6 +330,7 @@ public class PlaceController {
                             @Valid @ModelAttribute("place") Place place,
                             BindingResult bindingResult,
                             @RequestParam(required = false) String googleReviewsJson,
+                            @RequestParam(required = false) boolean convertToVisited,
                             jakarta.servlet.http.HttpServletRequest request,
                             RedirectAttributes redirectAttributes,
                             Model model) {
@@ -351,6 +355,7 @@ public class PlaceController {
             List<dk.placestracker.domain.model.Visit> visitsWithDurations = parseVisitDurations(place.visits(), visitDurations, model);
 
             // Update place with parsed reviews and durations
+            String status = convertToVisited ? "VISITED" : place.status();
             place = new Place(place.id(), place.name(), place.location(), place.state(), place.country(),
                     visitsWithDurations, place.hasToilet(), place.latitude(), place.longitude(),
                     place.formattedAddress(), place.googlePlaceId(), place.website(), place.phoneNumber(),
@@ -359,7 +364,7 @@ public class PlaceController {
                     place.createdAt(), place.updatedAt(),
                     place.drivingDistanceMiles(), place.drivingDurationMinutes(),
                     place.distanceCalculatedAt(), place.distanceFromHomeLatLng(),
-                    place.favorite(), place.status());
+                    place.favorite(), status);
 
             // Step 1: Update the place (generates IDs for new visits via service layer)
             Place updatedPlace = placeService.update(id, place);
@@ -487,11 +492,23 @@ public class PlaceController {
     @PostMapping("/{id}/toggle-favorite")
     public String toggleFavorite(@PathVariable String id,
                                  @RequestHeader(value = "HX-Request", required = false) String hxRequest,
+                                 @RequestParam(value = "context", required = false) String context,
                                  Model model) {
         Place place = placeService.toggleFavorite(id);
+        if ("true".equals(hxRequest) && "favorites".equals(context)) {
+            List<Place> allPlaces = placeService.findFavorites();
+            Map<String, DistanceResult> distances = distanceService.getDistances(allPlaces);
+            List<Place> sortedPlaces = sortPlaces(allPlaces, distances, "name", "asc");
+            PlacePage placePage = PlacePage.of(sortedPlaces, 0, 10, "name", "asc");
+            model.addAttribute("places", placePage.content());
+            model.addAttribute("placePage", placePage);
+            model.addAttribute("distances", distances);
+            model.addAttribute("listType", "favorites");
+            return "places/list :: places-table";
+        }
         model.addAttribute("place", place);
         if ("true".equals(hxRequest)) {
-            return "places/fragments/favorite-button :: favorite-btn";
+            return "places/fragments/favorite-button :: favorite-toggle";
         }
         return "redirect:/places/" + id;
     }
@@ -640,14 +657,12 @@ public class PlaceController {
 
     @PostMapping("/{id}/convert-to-visited")
     public String convertToVisited(@PathVariable String id, RedirectAttributes redirectAttributes) {
-        try {
-            placeService.convertToVisited(id);
-            redirectAttributes.addFlashAttribute("success", "Moved to visited places! You can now add visits and photos.");
-            return "redirect:/places/" + id + "/edit";
-        } catch (IllegalArgumentException e) {
+        if (placeService.findById(id).isEmpty()) {
             redirectAttributes.addFlashAttribute("error", "Place not found");
             return "redirect:/places/wishlist";
         }
+        redirectAttributes.addFlashAttribute("success", "Add visit details and save to mark as visited.");
+        return "redirect:/places/" + id + "/edit?convertToVisited=true";
     }
 
     @GetMapping("/states")
