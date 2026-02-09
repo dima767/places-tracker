@@ -139,7 +139,6 @@
                                     </span>
                                 </th>
                                 <th>Rating</th>
-                                <th style="width: 3rem;"></th>
                                 <th class="text-end">Actions</th>
                             </tr>
                         </thead>
@@ -164,9 +163,6 @@
                                         <span th:text="${#numbers.formatDecimal(place.googleRating, 1, 1)}">4.5</span>
                                     </span>
                                     <span th:unless="${place.googleRating != null}" class="small text-muted">--</span>
-                                </td>
-                                <td>
-                                    <div th:replace="~{places/fragments/favorite-button :: favorite-btn}"></div>
                                 </td>
                                 <td class="text-end">
                                     <div class="btn-group btn-group-sm">

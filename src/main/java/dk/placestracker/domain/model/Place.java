@@ -46,7 +46,7 @@ public record Place(
         List<Visit> visits,
 
         // Facilities
-        boolean hasToilet,
+        Boolean hasToilet,
 
         Double latitude,
 
@@ -83,14 +83,15 @@ public record Place(
         String distanceFromHomeLatLng,
 
         // Favorites & Wishlist
-        boolean favorite,
+        Boolean favorite,
 
         /** Place status: "VISITED" (or null for backward compat) or "TO_VISIT" */
         String status
 ) {
-    // Compact constructor for validation (optional)
+    // Compact constructor for validation and backward compatibility defaults
     public Place {
-        // Any custom validation logic can go here
+        hasToilet = hasToilet != null ? hasToilet : false;
+        favorite = favorite != null ? favorite : false;
     }
 
     // Helper factory method for creating new visited places (without id and timestamps)

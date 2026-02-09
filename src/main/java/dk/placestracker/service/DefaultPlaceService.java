@@ -126,7 +126,7 @@ public class DefaultPlaceService implements PlaceService {
                             place.googleRating(),
                             place.googleReviewCount(),
                             LocalDateTime.now()
-                    );
+                    ).withFavorite(place.favorite()).withStatus(place.status());
                     return placeRepository.save(updatedPlace);
                 })
                 .orElseThrow(() -> new IllegalArgumentException("Place not found with id: " + id));

@@ -18,7 +18,7 @@
                     <span class="detail-sticky-bar-name" th:text="${place.name}">Place Name</span>
                 </div>
                 <div class="detail-sticky-bar-actions">
-                    <div th:replace="~{places/fragments/favorite-button :: favorite-btn}"></div>
+                    <div th:unless="${place.isWishlist()}" th:replace="~{places/fragments/favorite-button :: favorite-btn}"></div>
                     <a th:if="${place.isWishlist()}" th:href="@{/places/{id}/edit(id=${place.id})}" class="btn btn-outline-success btn-sm" style="display: none;"></a>
                     <a th:unless="${place.isWishlist()}" th:href="@{/places/{id}/edit(id=${place.id})}" class="btn btn-outline-success btn-sm">
                         <i class="bi bi-pencil"></i><span class="btn-text ms-1">Edit</span>
@@ -55,8 +55,10 @@
                 <span th:if="${place.isWishlist()}" class="badge bg-info">
                     <i class="bi bi-bookmark-star me-1"></i>Wishlist
                 </span>
-                <span th:if="${place.favorite()}" class="badge bg-warning text-dark">
-                    <i class="bi bi-star-fill me-1"></i>Favorite
+                <span id="favorite-badge">
+                    <span th:if="${place.favorite()}" class="badge bg-warning text-dark">
+                        <i class="bi bi-star-fill me-1"></i>Favorite
+                    </span>
                 </span>
             </div>
             <p class="lead mb-0">
@@ -103,11 +105,11 @@
                                     <div class="small text-uppercase mb-1" style="color: var(--text-muted); letter-spacing: 0.05em; font-weight: 600;">Distance from Home</div>
                                     <div th:text="${T(dk.placestracker.util.DistanceCalculator).formatDistanceWithDuration(distanceFromHome.miles, distanceFromHome.durationMinutes, distanceFromHome.isFallback())}">N/A</div>
                                 </div>
-                                <div class="mb-3">
+                                <div th:unless="${place.isWishlist()}" class="mb-3">
                                     <div class="small text-uppercase mb-1" style="color: var(--text-muted); letter-spacing: 0.05em; font-weight: 600;">Total Visits</div>
                                     <span class="badge bg-success" style="font-size: 0.9rem;" th:text="${place.visitCount}">0</span>
                                 </div>
-                                <div class="mb-3">
+                                <div th:unless="${place.isWishlist()}" class="mb-3">
                                     <div class="small text-uppercase mb-1" style="color: var(--text-muted); letter-spacing: 0.05em; font-weight: 600;">Facilities</div>
                                     <span th:if="${place.hasToilet()}" class="badge bg-success">
                                         <i class="bi bi-check me-1"></i>Restrooms

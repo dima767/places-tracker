@@ -583,16 +583,15 @@ class PlaceControllerTests {
     @DisplayName("Should convert wishlist item to visited")
     void shouldConvertToVisited() throws Exception {
         // Given
-        Place visited = testPlace;
-        when(placeService.convertToVisited("place123")).thenReturn(visited);
+        when(placeService.findById("place123")).thenReturn(Optional.of(testPlace));
 
         // When/Then
         mockMvc.perform(post("/places/place123/convert-to-visited"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/places/place123/edit"))
-                .andExpect(flash().attribute("success", containsString("Moved to visited")));
+                .andExpect(redirectedUrl("/places/place123/edit?convertToVisited=true"))
+                .andExpect(flash().attribute("success", containsString("save to mark as visited")));
 
-        verify(placeService).convertToVisited("place123");
+        verify(placeService, never()).convertToVisited(any());
     }
 
     @Test
