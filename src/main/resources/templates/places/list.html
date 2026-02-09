@@ -179,14 +179,14 @@
                                     <div th:replace="${listType == 'favorites'} ? ~{places/fragments/favorite-button :: favorite-btn-remove} : ~{places/fragments/favorite-button :: favorite-btn}"></div>
                                 </td>
                                 <td class="text-end">
-                                    <div class="btn-group btn-group-sm">
+                                    <div class="action-btns">
                                         <a th:href="@{/places/{id}(id=${place.id})}"
-                                           class="btn btn-outline-success"
+                                           class="btn btn-sm btn-outline-success"
                                            title="View">
                                             <i class="bi bi-eye"></i>
                                         </a>
                                         <a th:href="@{/places/{id}/edit(id=${place.id})}"
-                                           class="btn btn-outline-secondary"
+                                           class="btn btn-sm btn-outline-secondary"
                                            title="Edit">
                                             <i class="bi bi-pencil"></i>
                                         </a>
@@ -195,7 +195,7 @@
                                               style="display: inline;"
                                               data-confirm="delete-place">
                                             <button type="submit"
-                                                    class="btn btn-outline-danger"
+                                                    class="btn btn-sm btn-outline-danger"
                                                     title="Delete">
                                                 <i class="bi bi-trash"></i>
                                             </button>

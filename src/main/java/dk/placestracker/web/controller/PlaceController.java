@@ -617,9 +617,9 @@ public class PlaceController {
                     googleReviews != null && !googleReviews.isEmpty() ? googleReviews : place.googleReviews()
             );
 
-            Place saved = placeService.create(wishlistItem);
+            placeService.create(wishlistItem);
             redirectAttributes.addFlashAttribute("success", "Added to wishlist!");
-            return "redirect:/places/" + saved.id();
+            return "redirect:/places/wishlist";
         } catch (Exception e) {
             model.addAttribute("error", "Error adding to wishlist: " + e.getMessage());
             return "places/wishlist-create";

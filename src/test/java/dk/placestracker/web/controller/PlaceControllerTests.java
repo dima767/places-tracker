@@ -574,7 +574,7 @@ class PlaceControllerTests {
                         .param("favorite", "false")
                         .param("hasToilet", "false"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/places/wish123"));
+                .andExpect(redirectedUrl("/places/wishlist"));
 
         verify(placeService).create(any(Place.class));
     }
