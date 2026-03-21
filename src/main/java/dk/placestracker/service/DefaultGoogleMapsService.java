@@ -37,6 +37,10 @@ public class DefaultGoogleMapsService implements GoogleMapsService {
     private static final Pattern PLACE_ID_PATTERN = Pattern.compile("place_id=([^&]+)");
     private static final Pattern PLACE_NAME_PATTERN = Pattern.compile("/place/([^/@]+)");
     private static final Pattern COORDINATES_PATTERN = Pattern.compile("@(-?\\d+\\.\\d+),(-?\\d+\\.\\d+)");
+    // Actual place coordinates embedded in the data parameter (!3d=lat, !4d=lng)
+    // These are more accurate than @coordinates which represent the map viewport center
+    private static final Pattern DATA_LAT_PATTERN = Pattern.compile("!3d(-?\\d+\\.\\d+)");
+    private static final Pattern DATA_LNG_PATTERN = Pattern.compile("!4d(-?\\d+\\.\\d+)");
 
     private final String apiKey;
     private final boolean apiKeyConfigured;
@@ -158,14 +162,30 @@ public class DefaultGoogleMapsService implements GoogleMapsService {
         log.debug("Searching for place by text: {}", placeName);
 
         // Try to extract coordinates from URL for location bias
+        // Prefer !3d/!4d data coordinates (actual place location) over @ coordinates (map viewport center)
         Map<String, Object> requestBody = Map.of("textQuery", placeName);
 
-        Matcher coordsMatcher = COORDINATES_PATTERN.matcher(url);
-        if (coordsMatcher.find()) {
-            double lat = Double.parseDouble(coordsMatcher.group(1));
-            double lng = Double.parseDouble(coordsMatcher.group(2));
-            log.debug("Using location bias: {}, {}", lat, lng);
+        Double lat = null;
+        Double lng = null;
+        double radius = 5000.0;
 
+        Matcher dataLatMatcher = DATA_LAT_PATTERN.matcher(url);
+        Matcher dataLngMatcher = DATA_LNG_PATTERN.matcher(url);
+        if (dataLatMatcher.find() && dataLngMatcher.find()) {
+            lat = Double.parseDouble(dataLatMatcher.group(1));
+            lng = Double.parseDouble(dataLngMatcher.group(1));
+            radius = 500.0; // Tighter radius since these are exact place coordinates
+            log.debug("Using place coordinates from data parameter: {}, {}", lat, lng);
+        } else {
+            Matcher coordsMatcher = COORDINATES_PATTERN.matcher(url);
+            if (coordsMatcher.find()) {
+                lat = Double.parseDouble(coordsMatcher.group(1));
+                lng = Double.parseDouble(coordsMatcher.group(2));
+                log.debug("Using viewport coordinates: {}, {}", lat, lng);
+            }
+        }
+
+        if (lat != null && lng != null) {
             requestBody = Map.of(
                 "textQuery", placeName,
                 "locationBias", Map.of(
@@ -174,7 +194,7 @@ public class DefaultGoogleMapsService implements GoogleMapsService {
                             "latitude", lat,
                             "longitude", lng
                         ),
-                        "radius", 5000.0  // 5km radius
+                        "radius", radius
                     )
                 )
             );

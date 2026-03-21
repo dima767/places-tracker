@@ -127,6 +127,14 @@ public class DefaultPlaceService implements PlaceService {
                             place.googleReviewCount(),
                             LocalDateTime.now()
                     ).withFavorite(place.favorite()).withStatus(place.status());
+
+                    // Clear cached driving distance if coordinates changed
+                    boolean coordsChanged = !java.util.Objects.equals(existingPlace.latitude(), place.latitude())
+                            || !java.util.Objects.equals(existingPlace.longitude(), place.longitude());
+                    if (coordsChanged) {
+                        updatedPlace = updatedPlace.withClearedDrivingDistance();
+                    }
+
                     return placeRepository.save(updatedPlace);
                 })
                 .orElseThrow(() -> new IllegalArgumentException("Place not found with id: " + id));
