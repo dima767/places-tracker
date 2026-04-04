@@ -50,7 +50,7 @@ if [ $? -eq 0 ]; then
     echo "╠═══════════════════════════════════════════════════════════════════════════════╣"
     echo "║                                                                               ║"
     echo "║  Application URL:                                                             ║"
-    echo "║    HTTPS: https://localhost:8443/placestracker                                ║"
+    echo "║    HTTPS: https://localhost:8143/placestracker                                ║"
     echo "║                                                                               ║"
     echo "║  MongoDB running on internal Docker network                                   ║"
     echo "║  SSL certificate auto-generated on first start                                ║"

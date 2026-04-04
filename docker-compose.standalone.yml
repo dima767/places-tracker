@@ -30,12 +30,12 @@ services:
     restart: unless-stopped
     ports:
       # HTTPS port
-      - "8443:8443"
+      - "8143:8143"
       # HTTP port (optional, for redirects)
-      - "8080:8080"
+      - "8081:8081"
     environment:
       # Server Configuration
-      SERVER_PORT: 8443
+      SERVER_PORT: 8143
       SERVER_SERVLET_CONTEXT_PATH: /placestracker
       SERVER_SSL_ENABLED: "true"
       SERVER_SSL_KEY_STORE: file:/app/certs/placestracker-keystore.p12

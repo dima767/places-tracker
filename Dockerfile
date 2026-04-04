@@ -44,7 +44,7 @@ RUN mkdir -p /app/logs /app/certs && chown -R placestracker:placestracker /app
 USER placestracker
 
 # Expose both HTTP and HTTPS ports
-EXPOSE 8080 8443
+EXPOSE 8081 8143
 
 # Use entrypoint to generate certs if needed
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
