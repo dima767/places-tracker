@@ -248,6 +248,70 @@ Useful when you want the shared DB running but are developing locally and don't 
 
 The tunnel forwards local `localhost:27017` to VM MongoDB over SSH. Your local app connects to it transparently.
 
+---
+
+## Backup and restore
+
+The data (places + photos in GridFS) is valuable. `backup-db.sh` and `restore-db.sh` give you a single-file portable snapshot in `mongodump --archive --gzip` format - copy it anywhere (local disk, USB, external drive, cloud storage) and restore it into any MongoDB 8.x instance.
+
+**Important: the tunnel is NOT required for backup/restore.** The scripts SSH into the VM and run `docker exec` on the mongo container directly. Dump/restore streams travel over the SSH channel itself. `db-tunnel.sh` is a separate feature only used when the local app *process* wants to talk to VM Mongo as if it were on `localhost:27017`.
+
+### Backup (VM -> local file)
+
+```
+./backup-db.sh                             # -> ./backups/placestracker-YYYYMMDD-HHMMSS.archive.gz
+./backup-db.sh /Volumes/MyUSB              # -> /Volumes/MyUSB/placestracker-...archive.gz
+./backup-db.sh /tmp/snapshot.archive.gz    # -> exact path
+```
+
+What it does, end to end:
+1. Reads `.deploy-config` for VM_HOST/VM_USER.
+2. Opens SSH to the VM.
+3. On the VM: `docker exec placestracker-mongodb mongodump --db=placestracker --archive --gzip`
+4. mongodump writes to stdout inside the container; docker exec surfaces it; SSH streams it back.
+5. Local shell redirects stdout to the output file.
+
+Nothing is written on the VM's disk - the stream goes straight to your local file. A typical full backup of this dataset is ~1.4 GB (GridFS photos are already JPEG-compressed, so gzip barely shrinks them).
+
+`backups/` is in `.gitignore`, so backups don't leak into commits.
+
+### Restore (file -> target Mongo)
+
+```
+./restore-db.sh <file>                       # into LOCAL container (placestracker-mongodb)
+./restore-db.sh <file> --vm                  # into VM container (SSH + docker exec)
+./restore-db.sh <file> --uri <mongo-uri>     # into any Mongo reachable by URI
+```
+
+All three modes pass `--drop`, so existing collections are dropped before restoring. There's no half-merged state if something crashes mid-restore - you just re-run it.
+
+- **Local mode** (default): requires `placestracker-mongodb` container running locally (`./compose-up.sh` or `./compose-up-standalone.sh`). Streams the file into `docker exec -i placestracker-mongodb mongorestore --gzip --archive --drop`.
+- **`--vm` mode**: same thing but over SSH into the VM. No tunnel needed.
+- **`--uri` mode**: requires `mongorestore` installed on your machine (`brew install mongodb-database-tools`). Hands the file and URI directly to `mongorestore` - use this for migrating to any third-party Mongo (Atlas, self-hosted, another VM, whatever).
+
+### Manual restore (no script, any machine)
+
+The backup file is self-describing. On any machine with MongoDB Database Tools installed:
+
+```
+mongorestore --gzip --archive=placestracker-20260411-090426.archive.gz --drop \
+    --uri=mongodb://HOST:27017
+```
+
+Or into a running container without host tooling:
+
+```
+docker exec -i <mongo-container-name> mongorestore --gzip --archive --drop \
+    < placestracker-20260411-090426.archive.gz
+```
+
+### Operational suggestions
+
+- **Before any schema change or risky refactor**: `./backup-db.sh` first. It's a single SSH stream, takes a few minutes.
+- **Rotating snapshots**: `./backup-db.sh` generates a timestamped filename every time, so repeated runs don't overwrite each other. Clean `backups/` periodically if disk fills up.
+- **Off-machine copy**: after a backup, `cp` or `rsync` the file to a USB drive or cloud storage. The file is the atomic unit - one file, one snapshot.
+- **Restoring into Atlas / a remote cluster**: use `--uri` mode with the cluster's SRV or standard connection string. Atlas accepts mongodump archives directly.
+
 ### All commands
 
 ```
@@ -269,6 +333,11 @@ The tunnel forwards local `localhost:27017` to VM MongoDB over SSH. Your local a
 ./logs-exe.sh                # tail all logs
 ./logs-exe.sh app            # tail app logs only
 ./logs-exe.sh mongodb        # tail db logs only
+./backup-db.sh               # dump VM Mongo to ./backups/placestracker-TIMESTAMP.archive.gz
+./backup-db.sh <dir|file>    # dump to the given directory or exact file path
+./restore-db.sh <file>       # restore a backup into local container
+./restore-db.sh <file> --vm  # restore a backup into VM container
+./restore-db.sh <file> --uri <mongo-uri>   # restore into any Mongo URI
 ```
 
 ---
@@ -295,7 +364,10 @@ places-tracker/
 ├── compose-up-local.sh           # local container + VM DB (-b to build)
 ├── compose-down-local.sh         # stop local container
 ├── status-exe.sh                 # docker compose ps + last 30 lines
-└── logs-exe.sh [app|mongodb]     # follow logs
+├── logs-exe.sh [app|mongodb]     # follow logs
+├── backup-db.sh                  # VM mongo -> gzipped archive file (no tunnel needed)
+├── restore-db.sh                 # archive file -> local | --vm | --uri target
+└── backups/                      # IGNORED: generated backup files
 ```
 
 ---

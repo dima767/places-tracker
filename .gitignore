@@ -68,3 +68,4 @@ replay_pid*
 .deploy-config
 .env.prod
 .db-tunnel.pid
+backups/
