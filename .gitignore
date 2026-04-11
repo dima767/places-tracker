@@ -66,3 +66,5 @@ replay_pid*
 
 # Deployment configuration (Security: Never commit credentials!)
 .deploy-config
+.env.prod
+.db-tunnel.pid

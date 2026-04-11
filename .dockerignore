@@ -27,6 +27,11 @@ Thumbs.db
 
 # Environment
 .env
+.env.prod
+.env.prod.example
+.deploy-config
+.deploy-config.example
+.db-tunnel.pid
 *.local
 
 # Logs

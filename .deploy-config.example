@@ -1,0 +1,16 @@
+# Places Tracker exe.dev deployment configuration
+# Copy this file to .deploy-config and fill in your values
+#
+# Usage: cp .deploy-config.example .deploy-config
+
+# VM connection
+VM_HOST=your-app.exe.xyz
+VM_USER=execdev
+
+# Application directory on VM
+APP_DIR=/home/execdev/places-tracker
+
+# Repository URL - exe.dev GitHub integration format
+# After running: ssh exe.dev integrations add github --name your-integration --repository <user>/places-tracker --attach vm:your-app
+# The integration exposes the repo via an internal URL: https://<integration-name>.int.exe.xyz/<user>/<repo>.git
+REPO_URL=https://your-integration.int.exe.xyz/<user>/places-tracker.git

@@ -1,577 +1,356 @@
-# exe.dev Deployment Guide for Spring Boot Applications
+# Places Tracker - exe.dev Deployment Guide
 
-Complete guide for deploying Spring Boot applications to exe.dev VMs using Docker and nginx.
+Step-by-step guide for deploying Places Tracker to an exe.dev VM from a clean slate. Security-first: private VM, no secrets in git, MongoDB bound to loopback on the VM.
 
-## Table of Contents
-- [Prerequisites](#prerequisites)
-- [Project Setup](#project-setup)
-- [Docker Configuration](#docker-configuration)
-- [Deployment Scripts](#deployment-scripts)
-- [Nginx Configuration](#nginx-configuration)
-- [Troubleshooting](#troubleshooting)
-- [Spring Boot Version Notes](#spring-boot-version-notes)
+## What you get
+
+- Spring Boot 4 app + MongoDB 8 running on a private exe.dev VM
+- HTTPS via exe.dev's proxy (no cert management)
+- exe.dev auth gate in front of the app (private share)
+- A shared MongoDB that both the VM app and your local app can use via an SSH tunnel - no split-brain between dev and prod data
+- A set of scripts that mirror Marcus's deployment flow (deploy, start, stop, logs, db-tunnel, etc.)
 
 ## Prerequisites
 
-1. **exe.dev VM** - Create via `ssh exe.dev create <vm-name>`
-2. **GitHub Repository** - Private or public repo for your Spring Boot app
-3. **SSH Keys** - For GitHub authentication (deploy keys recommended for private repos)
-4. **Docker** - Pre-installed on exe.dev VMs
-5. **nginx** - Pre-installed, needs to be enabled
+- exe.dev account with SSH access configured (`ssh exe.dev whoami` works)
+- GitHub repo with the Places Tracker source (private or public)
+- Google Maps API key (`GOOGLE_MAPS_API_KEY`)
+- Docker running locally (for the local-container mode)
 
-## Project Setup
+---
 
-### 1. Create Dockerfile
-
-```dockerfile
-# Multi-stage build for Spring Boot application
-FROM eclipse-temurin:25-jdk AS builder
-
-WORKDIR /app
-
-# Copy Gradle wrapper and build files
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle .
-COPY settings.gradle .
-
-# Download dependencies (cached layer)
-RUN ./gradlew dependencies --no-daemon || return 0
-
-# Copy source code
-COPY src src
-
-# Build the application (skip tests for faster builds)
-RUN ./gradlew bootJar --no-daemon -x test
-
-# Stage 2: Runtime image
-FROM eclipse-temurin:25-jre
-
-WORKDIR /app
-
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# Copy the built JAR from builder stage
-COPY --from=builder /app/build/libs/*.jar app.jar
-
-# Create logs directory
-RUN mkdir -p /app/logs && chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
-
-# Expose port 8080 (standard for Spring Boot in Docker)
-EXPOSE 8080
-
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
-CMD ["--spring.profiles.active=docker"]
-```
-
-### 2. Create docker-compose.prod.yml
-
-**Key Points:**
-- Use port 8080 for the app container
-- Set context path to `/yourappname`
-- MongoDB uses service name for hostname (not localhost)
-- Use environment variables for configuration
-
-```yaml
-version: '3.8'
-
-services:
-  # MongoDB Database (if needed)
-  mongodb:
-    image: mongo:8.0
-    container_name: yourapp-mongodb
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_DATABASE: yourapp
-    volumes:
-      - mongodb_data:/data/db
-      - mongodb_config:/data/configdb
-    networks:
-      - yourapp-network
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/yourapp --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 40s
-
-  # Your Spring Boot Application
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: yourapp:latest
-    container_name: yourapp-app
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    environment:
-      # MongoDB connection (Spring Boot 4.0 uses spring.mongodb.uri)
-      # For older versions use: spring.data.mongodb.uri
-      SPRING_MONGODB_URI: mongodb://mongodb:27017/yourapp
-
-      # Server configuration
-      SERVER_SSL_ENABLED: false
-      SERVER_PORT: 8080
-      SERVER_SERVLET_CONTEXT_PATH: /yourappname
-
-      # Add your app-specific environment variables
-      YOUR_API_KEY: ${YOUR_API_KEY}
-
-      # Java memory settings
-      JAVA_OPTS: "-Xms512m -Xmx1g"
-    volumes:
-      - app_logs:/app/logs
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    networks:
-      - yourapp-network
-
-volumes:
-  mongodb_data:
-    driver: local
-  mongodb_config:
-    driver: local
-  app_logs:
-    driver: local
-
-networks:
-  yourapp-network:
-    driver: bridge
-```
-
-### 3. Create .dockerignore
+## Step 1 - Create the VM on exe.dev
 
 ```
-# Gradle
-.gradle/
-build/
-
-# IDE
-.idea/
-*.iws
-*.iml
-*.ipr
-out/
-
-# OS
-.DS_Store
-
-# Logs
-logs/
-*.log
-
-# Environment
-.env
-.deploy-config
-
-# Git
-.git/
-.gitignore
+ssh exe.dev new --name=your-app
 ```
 
-### 4. Update application.properties for Docker
+This creates `your-app.exe.xyz`. exe.dev VMs are **private by default** - the HTTPS proxy requires auth to your exe.dev account. We'll verify in Step 7.
 
-**Spring Boot 4.0+ (uses `spring.mongodb.*`):**
-```properties
-# MongoDB (Spring Boot 4.0+)
-spring.mongodb.uri=${SPRING_MONGODB_URI:mongodb://localhost:27017/yourapp}
+## Step 2 - Wire up GitHub access on the VM
 
-# Server
-server.port=8443
-server.servlet.context-path=/yourappname
+If the repo is private, the VM can't `git clone` without credentials. Use exe.dev's GitHub integration so tokens stay on exe.dev's side:
 
-# SSL for local dev only
-server.ssl.enabled=true
-server.ssl.key-store=classpath:ssl/keystore.p12
-server.ssl.key-store-password=changeit
+```
+ssh exe.dev integrations add github --name your-integration --repository <user>/places-tracker --attach vm:your-app
 ```
 
-**Spring Boot 3.x (uses `spring.data.mongodb.*`):**
-```properties
-# MongoDB (Spring Boot 3.x)
-spring.data.mongodb.uri=${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/yourapp}
+Follow the prompts to authorize GitHub. After this, the VM can clone over HTTPS with no token management.
 
-# Rest is the same...
+The command prints an internal URL like:
+
+```
+https://your-integration.int.exe.xyz/<user>/places-tracker.git
 ```
 
-## Deployment Scripts
+Save that - you'll paste it into `.deploy-config` in the next step.
 
-### 1. Create deploy-to-exe.sh
+If the repo is public, you can skip the integration and use the regular `https://github.com/<user>/places-tracker.git` URL.
 
-Copy and adapt from `deploy-to-exe.sh` in this repo. Key customizations:
+## Step 3 - Fill in `.deploy-config` locally
 
-```bash
-# Update these variables
-VM_HOST="yourvm.exe.xyz"        # Your exe.dev VM hostname
-REPO_URL=""                      # Your GitHub repo URL
-CONTEXT_PATH="/yourappname"      # Your app's context path
 ```
-
-### 2. Create .deploy-config
-
-```bash
-# Copy example and customize
+cd /Users/dkopylenko/work/Claude/places-tracker
 cp .deploy-config.example .deploy-config
-
-# Edit with your values
-nano .deploy-config
 ```
 
-Example `.deploy-config`:
-```bash
-# Git Repository (SSH URL with deploy key)
-REPO_URL=git@github.com:username/yourapp.git
+Edit `.deploy-config`:
+- `VM_HOST=your-app.exe.xyz`
+- `VM_USER=execdev`
+- `APP_DIR=/home/execdev/places-tracker`
+- `REPO_URL=https://your-integration.int.exe.xyz/<user>/places-tracker.git` (from Step 2)
 
-# Deploy Key Path (for private repos)
-DEPLOY_KEY_PATH=~/.ssh/yourapp-deploy-key
-
-# Your app-specific secrets
-YOUR_API_KEY=your-api-key-here
-
-# VM Configuration
-VM_HOST=yourvm.exe.xyz
-VM_USER=execdev
-```
-
-### 3. Create .deploy-config.example
-
-```bash
-# Git Repository URL
-REPO_URL=git@github.com:username/yourapp.git
-
-# Deploy Key Path (optional - for private repos)
-DEPLOY_KEY_PATH=~/.ssh/yourapp-deploy-key
-
-# Your app-specific environment variables
-YOUR_API_KEY=your-api-key-here
-
-# VM Configuration (exe.dev)
-VM_HOST=yourvm.exe.xyz
-VM_USER=execdev
-```
-
-### 4. Add to .gitignore
+## Step 4 - Fill in `.env.prod` locally
 
 ```
-# Deployment configuration (contains secrets)
-.deploy-config
+cp .env.prod.example .env.prod
 ```
 
-## Nginx Configuration
+Edit `.env.prod`:
+- `MONGO_INITDB_DATABASE=placestracker`
+- `GOOGLE_MAPS_API_KEY=<your key>`
+- `JAVA_OPTS=-Xms256m -Xmx512m`
 
-### Automated Setup (Recommended)
+Both `.deploy-config` and `.env.prod` are in `.gitignore`. Never commit them.
 
-Use the provided `setup-nginx.sh` script to automate nginx configuration:
+## Step 5 - Sanity check SSH to VM
 
-```bash
-# One-time setup (uses .deploy-config values)
-./setup-nginx.sh
-
-# Or specify context path
-./setup-nginx.sh /yourappname
+```
+ssh execdev@your-app.exe.xyz echo ok
 ```
 
-The script will:
-- ✅ Enable nginx if not running
-- ✅ Create nginx site configuration with port 8000 support
-- ✅ Enable the site
-- ✅ Test configuration
-- ✅ Reload nginx
-- ✅ Verify setup
-
-### Manual Setup (Alternative)
-
-If you prefer manual configuration:
-
-#### 1. Enable nginx on exe.dev VM
-
-```bash
-ssh execdev@yourvm.exe.xyz sudo systemctl enable --now nginx
+If this fails, check your SSH keys:
+```
+ssh exe.dev ssh-key list
 ```
 
-#### 2. Create nginx site configuration
+exe.dev auto-provisions your SSH key, so this should just work.
 
-**CRITICAL:** exe.dev routes HTTPS traffic to port 8000, so nginx must listen on both port 80 AND port 8000!
+## Step 6 - Deploy
 
-```bash
-ssh execdev@yourvm.exe.xyz "sudo tee /etc/nginx/sites-available/yourapp > /dev/null << 'EOF'
-server {
-    listen 80;
-    listen [::]:80;
-    listen 8000;
-    listen [::]:8000;
-    server_name yourvm.exe.xyz;
-
-    location /yourappname {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-EOF
-"
 ```
-
-#### 3. Enable site and reload nginx
-
-```bash
-ssh execdev@yourvm.exe.xyz "
-  sudo ln -sf /etc/nginx/sites-available/yourapp /etc/nginx/sites-enabled/yourapp &&
-  sudo nginx -t &&
-  sudo systemctl reload nginx
-"
-```
-
-## GitHub Deploy Keys (for Private Repos)
-
-### 1. Generate SSH key locally
-
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/yourapp-deploy-key -N "" -C "yourapp-deploy-key"
-```
-
-### 2. Add public key to GitHub
-
-```bash
-# Display public key
-cat ~/.ssh/yourapp-deploy-key.pub
-```
-
-- Go to: `https://github.com/username/yourapp/settings/keys`
-- Click "Add deploy key"
-- Title: `exe.dev deployment`
-- Paste public key
-- **DO NOT** check "Allow write access"
-- Click "Add key"
-
-### 3. Update .deploy-config
-
-```bash
-REPO_URL=git@github.com:username/yourapp.git
-DEPLOY_KEY_PATH=~/.ssh/yourapp-deploy-key
-```
-
-The deployment script will automatically copy the key to the VM and configure SSH.
-
-## Deployment Workflow
-
-### Initial Deployment
-
-```bash
-# 1. Ensure all config files are ready
-ls -la .deploy-config Dockerfile docker-compose.prod.yml
-
-# 2. Run deployment script
-./deploy-to-exe.sh
-
-# 3. Configure nginx (one-time)
-./setup-nginx.sh
-
-# 4. Test
-curl https://yourvm.exe.xyz/yourappname/
-```
-
-### Subsequent Deployments
-
-```bash
-# Just run the deployment script
 ./deploy-to-exe.sh
 ```
 
-The script will:
-1. Update code via git pull
-2. Rebuild Docker image with --no-cache
-3. Restart containers
-4. Verify deployment
+What this does (all over encrypted SSH/SCP):
+1. Connects to `execdev@your-app.exe.xyz`
+2. Clones (or pulls) the repo on the VM via the exe.dev GitHub integration
+3. SCPs `.env.prod` to `${APP_DIR}/.env` with **600** perms
+4. Runs `docker compose -f docker-compose.prod.yml up -d --build` on the VM
+5. Configures exe.dev proxy: forwards public HTTPS to container port 8080
+
+## Step 7 - Verify private access
+
+```
+ssh exe.dev share show your-app
+```
+
+Confirm it says **private** (not public). If it's public for any reason:
+```
+ssh exe.dev share set-private places-tracker
+```
+
+Open `https://your-app.exe.xyz/placestracker/` in a browser - you should be prompted to log in with exe.dev. That login gate is the auth layer.
+
+## Step 8 - Smoke test
+
+```
+./status-exe.sh
+./logs-exe.sh app
+```
+
+App should be serving on 8080 (bound to 127.0.0.1, proxied by exe.dev), MongoDB healthy on 27017 (also 127.0.0.1 only).
+
+---
+
+## Security checklist
+
+| Surface | Protection |
+|---|---|
+| VM HTTPS endpoint | exe.dev auth gate (private share) - only you can reach it |
+| TLS termination | exe.dev proxy (auto cert, you don't manage it) |
+| Key transfer | SSH/SCP only - never over HTTP, never via git |
+| `.env` on VM | 600 perms, contains Google Maps key and DB name |
+| Secrets in image | None - `.dockerignore` excludes `.env*`, `.deploy-config` |
+| Secrets in git | `.deploy-config`, `.env.prod` in `.gitignore` |
+| MongoDB port | Bound to `127.0.0.1` on VM - reachable only via SSH tunnel, not exposed to internet |
+| App port 8080 | Bound to `127.0.0.1` on VM, exe.dev proxy is the only public path |
+| App-level SSL | Disabled in prod - exe.dev handles TLS, Spring Boot speaks plain HTTP internally |
+| Forwarded headers | `SERVER_FORWARD_HEADERS_STRATEGY=native` so Spring sees the real client IP / scheme |
+
+---
+
+## Shared database - one MongoDB for local and VM
+
+Both the local dev app and the VM app use the same MongoDB instance running on the VM. This keeps place/visit/photo data consistent when you switch between running locally and running on the VM - no more "why isn't my test place showing up in prod" moments.
+
+### How it works
+
+- MongoDB runs on the VM as a Docker container, exposed on the VM's `127.0.0.1:27017`
+- The VM app connects directly over Docker's internal network (`mongodb://mongodb:27017/...`)
+- Your local app connects through an SSH tunnel: local `:27017` -> VM `:27017`
+- No port is exposed to the internet - SSH is the only way in
+
+### Local development with VM database
+
+Two options depending on how you want to run the app:
+
+**Option A: Run as JAR from IDE or gradlew**
+
+1. Make sure VM MongoDB is up: `./start-db-exe.sh`
+2. Open the tunnel: `./db-tunnel.sh`
+3. Run the app from your IDE (it connects to `localhost:27017` transparently because `spring.mongodb.uri` defaults to that)
+4. When done: `./db-tunnel.sh stop`
+
+Or one-shot:
+
+```
+./dev-remote-db.sh       # checks VM DB, opens tunnel, stops any local mongo that would conflict
+```
+
+**Option B: Run in a local container (closer to production)**
+
+```
+./compose-up-local.sh -b   # builds image, sets up tunnel, starts app container
+```
+
+This runs the app inside Docker but connects to the VM database through the SSH tunnel. Uses `docker-compose.local.yml` which has **no** MongoDB service; the app connects to the host's `localhost:27017` via `host.docker.internal`.
+
+```
+./compose-down-local.sh      # stop app container (tunnel stays open)
+./compose-down-local.sh -v   # stop and remove volumes
+```
+
+### Avoiding port conflicts
+
+If your local `docker-compose.yml` or `docker-compose.standalone.yml` is already running a Mongo container on `:27017`, the tunnel can't bind. `dev-remote-db.sh` and `compose-up-local.sh` both detect this and stop the local Mongo before opening the tunnel. If you open the tunnel manually with `db-tunnel.sh`, make sure no local Mongo container is up first:
+
+```
+docker compose -f docker-compose.standalone.yml down
+docker compose -f docker-compose.yml down
+```
+
+---
+
+## Day-to-day operations
+
+### Redeploy after code changes
+
+```
+git push
+./deploy-to-exe.sh
+```
+
+This pulls the latest code on the VM and runs `docker compose up -d --build`. Docker Compose is smart about what it restarts:
+
+- **Only code changed** - app image is rebuilt and app container recreated. MongoDB is untouched.
+- **Nothing changed** - both left alone.
+- **App not running** (e.g. after stop) - MongoDB stays up, app gets built and started.
+- **MongoDB config changed** in `docker-compose.prod.yml` - MongoDB is also recreated (rare).
+
+Safe to run at any time regardless of current state. No need to stop first.
+
+### Start/stop without rebuilding
+
+```
+./stop-exe.sh                # stop containers (keeps volumes)
+./start-exe.sh               # start containers without rebuilding
+```
+
+Use `start-exe.sh` when you stopped the stack and just want to bring it back up with the same code.
+
+**Note:** `start-exe.sh` only works if containers still exist (i.e. stopped with `stop-exe.sh`). After `stop-exe.sh -v` or `stop-db-exe.sh -v`, containers are removed - use `deploy-to-exe.sh` to bring everything back.
+
+### Clean restart with fresh database
+
+```
+./stop-exe.sh                # stop everything
+./stop-db-exe.sh -v          # wipe the DB volume
+./deploy-to-exe.sh           # bring everything back up (Mongo creates empty db)
+```
+
+### Database only (start/stop independently)
+
+```
+./start-db-exe.sh            # start just MongoDB on VM
+./stop-db-exe.sh             # stop just MongoDB on VM (keeps data)
+./stop-db-exe.sh -v          # stop MongoDB and destroy volume (wipes DB!)
+```
+
+Useful when you want the shared DB running but are developing locally and don't need the VM app running.
+
+### SSH tunnel for local dev
+
+```
+./db-tunnel.sh               # open tunnel in background (idempotent)
+./db-tunnel.sh stop          # kill background tunnel
+```
+
+The tunnel forwards local `localhost:27017` to VM MongoDB over SSH. Your local app connects to it transparently.
+
+### All commands
+
+```
+./deploy-to-exe.sh           # full redeploy (pull + rebuild + restart)
+./start-exe.sh               # start all containers without rebuild
+./stop-exe.sh                # stop all containers (keeps volumes)
+./stop-exe.sh -v             # stop and remove volumes (destroys DB!)
+./start-db-exe.sh            # start just MongoDB
+./stop-db-exe.sh             # stop just MongoDB (keeps data)
+./stop-db-exe.sh -v          # stop MongoDB and destroy volume (wipes DB!)
+./db-tunnel.sh               # SSH tunnel to VM MongoDB
+./db-tunnel.sh stop          # kill the tunnel
+./dev-remote-db.sh           # start VM DB + tunnel in one step
+./compose-up-local.sh        # local app container + VM DB
+./compose-up-local.sh -b     # build and start local app container + VM DB
+./compose-down-local.sh      # stop local app container (tunnel stays)
+./compose-down-local.sh -v   # stop and remove volumes
+./status-exe.sh              # container status + recent logs
+./logs-exe.sh                # tail all logs
+./logs-exe.sh app            # tail app logs only
+./logs-exe.sh mongodb        # tail db logs only
+```
+
+---
+
+## File layout
+
+```
+places-tracker/
+├── Dockerfile                    # local dev image (JDK, self-signed SSL, entrypoint generates cert)
+├── Dockerfile.prod               # production image (JRE only, no SSL, healthcheck via /placestracker)
+├── docker-compose.yml            # local-only: mongodb
+├── docker-compose.standalone.yml # local: mongodb + app with self-signed cert
+├── docker-compose.local.yml      # local container + VM DB (SSH tunnel)
+├── docker-compose.prod.yml       # VM: mongodb + app, ports bound to 127.0.0.1
+├── .deploy-config.example        # committed: VM host, user, app dir, repo URL
+├── .deploy-config                # IGNORED: your values
+├── .env.prod.example             # committed: env var template
+├── .env.prod                     # IGNORED: Google Maps key etc.
+├── deploy-to-exe.sh              # clone/pull, scp .env, build, up -d
+├── start-exe.sh / stop-exe.sh    # whole-stack start/stop
+├── start-db-exe.sh / stop-db-exe.sh # DB-only start/stop
+├── db-tunnel.sh                  # SSH -L 27017 -> VM 27017
+├── dev-remote-db.sh              # start VM DB + tunnel, stop local Mongo
+├── compose-up-local.sh           # local container + VM DB (-b to build)
+├── compose-down-local.sh         # stop local container
+├── status-exe.sh                 # docker compose ps + last 30 lines
+└── logs-exe.sh [app|mongodb]     # follow logs
+```
+
+---
 
 ## Troubleshooting
 
-### MongoDB Connection Issues
+### `docker compose up` fails on the VM with a build error
 
-**Problem:** App can't connect to MongoDB
+`./deploy-to-exe.sh` does the build remotely. SSH in and check:
 
-**Solutions:**
-
-1. **Check Spring Boot version:**
-   - Spring Boot 4.0+: Use `spring.mongodb.uri`
-   - Spring Boot 3.x: Use `spring.data.mongodb.uri`
-
-2. **Verify environment variable:**
-   ```bash
-   docker compose -f docker-compose.prod.yml exec app env | grep MONGO
-   ```
-
-3. **Check MongoDB is running:**
-   ```bash
-   docker compose -f docker-compose.prod.yml ps
-   docker compose -f docker-compose.prod.yml logs mongodb
-   ```
-
-4. **Test connection:**
-   ```bash
-   docker compose -f docker-compose.prod.yml exec app sh -c \
-     'curl -s http://localhost:8080/yourappname/actuator/health'
-   ```
-
-### Nginx 404 Errors
-
-**Problem:** `https://yourvm.exe.xyz/yourappname` returns 404
-
-**Solutions:**
-
-1. **Verify nginx is listening on port 8000:**
-   ```bash
-   ssh execdev@yourvm.exe.xyz "sudo netstat -tlnp | grep nginx"
-   # Should show both :80 and :8000
-   ```
-
-2. **Check nginx configuration:**
-   ```bash
-   ssh execdev@yourvm.exe.xyz "sudo nginx -T | grep -A 10 'location /yourappname'"
-   ```
-
-3. **Test app directly:**
-   ```bash
-   ssh execdev@yourvm.exe.xyz "curl -v http://localhost:8080/yourappname/"
-   ```
-
-4. **Check nginx logs:**
-   ```bash
-   ssh execdev@yourvm.exe.xyz "sudo tail -f /var/log/nginx/error.log"
-   ```
-
-### Docker Build Cache Issues
-
-**Problem:** Code changes not reflected after deployment
-
-**Solution:**
-```bash
-# The deploy script uses --no-cache, but if issues persist:
-ssh execdev@yourvm.exe.xyz "
-  cd yourapp &&
-  docker compose -f docker-compose.prod.yml down &&
-  docker system prune -af &&
-  docker compose -f docker-compose.prod.yml up -d --build
-"
+```
+ssh execdev@your-app.exe.xyz
+cd places-tracker
+docker compose -f docker-compose.prod.yml build --no-cache app
 ```
 
-### Port Conflicts
+### App starts but 502 from exe.dev
 
-**Problem:** Port 8080 already in use
+The exe.dev proxy needs the port forwarded. The deploy script runs:
 
-**Solutions:**
-
-1. **Find conflicting process:**
-   ```bash
-   ssh execdev@yourvm.exe.xyz "sudo lsof -i :8080"
-   ```
-
-2. **Change app port in docker-compose.prod.yml:**
-   ```yaml
-   ports:
-     - "8081:8080"  # Use different host port
-   ```
-
-3. **Update nginx proxy_pass:**
-   ```nginx
-   proxy_pass http://localhost:8081;
-   ```
-
-## Spring Boot Version Notes
-
-### Spring Boot 4.0+ (Spring Framework 7.0)
-
-**MongoDB Configuration Changes:**
-- Old: `spring.data.mongodb.*`
-- New: `spring.mongodb.*`
-
-**application.properties:**
-```properties
-spring.mongodb.uri=${SPRING_MONGODB_URI:mongodb://localhost:27017/yourapp}
+```
+ssh exe.dev share port places-tracker 8080
 ```
 
-**docker-compose.prod.yml:**
-```yaml
-environment:
-  SPRING_MONGODB_URI: mongodb://mongodb:27017/yourapp
+If that failed silently, re-run it manually.
+
+### `./db-tunnel.sh` says port is already open
+
+Something is already bound to local `:27017`. Usually a local Mongo container. Kill it:
+
+```
+docker compose -f docker-compose.standalone.yml down
+docker compose -f docker-compose.yml down
+./db-tunnel.sh
 ```
 
-### Spring Boot 3.x (Spring Framework 6.0)
+### Local app can't see data I saved on the VM app
 
-**MongoDB Configuration:**
-```properties
-spring.data.mongodb.uri=${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/yourapp}
+Make sure both are using the same database. Local should be connecting via the tunnel:
+- `dev-remote-db.sh` output says `Tunnel: already open` or `Tunnel started`
+- `lsof -i :27017` shows an `ssh` process listening
+- Local `SPRING_MONGODB_URI` (or default) is `mongodb://localhost:27017/placestracker`
+
+If the local app is running inside a container, it must use `host.docker.internal:27017` (that's what `docker-compose.local.yml` does).
+
+### MongoDB volume wipe didn't actually wipe
+
+The volume name on the VM is `placestracker-prod_placestracker_mongodata` (compose project name + volume name). `stop-db-exe.sh -v` targets that name. If your project name differs, check:
+
+```
+ssh execdev@your-app.exe.xyz docker volume ls
 ```
 
-**docker-compose.prod.yml:**
-```yaml
-environment:
-  SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/yourapp
+And remove manually:
+
 ```
-
-## Quick Reference Checklist
-
-- [ ] Dockerfile created
-- [ ] docker-compose.prod.yml configured
-- [ ] .dockerignore added
-- [ ] application.properties updated for Docker
-- [ ] deploy-to-exe.sh script copied and customized
-- [ ] .deploy-config created (not committed to git)
-- [ ] .deploy-config.example created
-- [ ] .gitignore updated to exclude .deploy-config
-- [ ] Deploy key generated (for private repos)
-- [ ] Deploy key added to GitHub
-- [ ] VM created on exe.dev
-- [ ] nginx enabled on VM
-- [ ] nginx site configuration created
-- [ ] nginx listening on port 8000 ✅ **CRITICAL**
-- [ ] Initial deployment successful
-- [ ] Application accessible via HTTPS
-
-## Additional Management Scripts
-
-Consider creating these helper scripts:
-
-**status-exe.sh** - Check application status
-**stop-exe.sh** - Stop containers (keep data)
-**destroy-exe.sh** - Complete cleanup
-**logs-exe.sh** - View application logs
-
-See this repo's scripts for examples.
-
-## Security Best Practices
-
-1. **Never commit secrets** - Use .deploy-config (git-ignored)
-2. **Use deploy keys** - Not personal SSH keys
-3. **Read-only deploy keys** - No write access needed
-4. **Environment variables** - For all secrets in docker-compose
-5. **Non-root containers** - Always create app user in Dockerfile
-6. **Regular updates** - Keep base images and dependencies updated
-
-## Resources
-
-- [exe.dev Documentation](https://exe.dev)
-- [Spring Boot Docker Guide](https://spring.io/guides/topicals/spring-boot-docker/)
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [nginx Reverse Proxy Guide](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/)
-- [Spring Boot 4.0 Documentation](https://docs.spring.io/spring-boot/reference/)
-
-## Example Repository
-
-This repository (`park-tracker`) serves as a complete working example with:
-- All configuration files
-- Deployment scripts
-- nginx setup
-- MongoDB integration
-- Spring Boot 4.0 configuration
-
-Use it as a template for your own applications!
+ssh execdev@your-app.exe.xyz docker volume rm <name>
+```

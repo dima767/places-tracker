@@ -1,0 +1,62 @@
+# ============================================================
+# Stage 1: Builder - Compile and package the application
+# ============================================================
+FROM eclipse-temurin:25-jdk AS builder
+
+WORKDIR /build
+
+# Copy Gradle wrapper and build files first (better layer caching)
+COPY gradlew gradlew
+COPY gradle/ gradle/
+COPY build.gradle settings.gradle ./
+
+# Make gradlew executable
+RUN chmod +x gradlew
+
+# Download dependencies (cached unless build files change)
+RUN ./gradlew dependencies --no-daemon
+
+# Copy source code
+COPY src/ src/
+
+# Build the application (skip tests for faster builds)
+RUN ./gradlew bootJar --no-daemon -x test
+
+# ============================================================
+# Stage 2: Runtime - JRE-only image for production
+# ============================================================
+FROM eclipse-temurin:25-jre
+
+LABEL maintainer="Places Tracker"
+LABEL description="Places Tracker - Spring Boot application (Production)"
+
+# Create non-root user
+RUN groupadd --gid 1001 placestracker || true && \
+    useradd --uid 1001 --gid 1001 --shell /bin/bash --create-home placestracker || true
+
+WORKDIR /app
+
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create directory for logs
+RUN mkdir -p /app/logs && \
+    chown -R placestracker:placestracker /app
+
+# Copy the built JAR from builder stage
+COPY --from=builder /build/build/libs/*.jar app.jar
+RUN chown placestracker:placestracker /app/app.jar
+
+# Switch to non-root user
+USER placestracker
+
+# Configurable JVM options
+ENV JAVA_OPTS="-Xms256m -Xmx512m"
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/placestracker/ 2>/dev/null || exit 1
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

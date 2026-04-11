@@ -1,0 +1,62 @@
+# Places Tracker - Local Container + Remote DB
+# App runs in a local Docker container, connects to VM MongoDB via SSH tunnel.
+# The tunnel must be running before starting (compose-up-local.sh handles this).
+#
+# Usage:
+#   ./compose-up-local.sh       - Start (use cached image)
+#   ./compose-up-local.sh -b    - Build and start
+#   ./compose-down-local.sh     - Stop (preserve certs/logs)
+#   ./compose-down-local.sh -v  - Stop and remove volumes
+
+name: placestracker-local
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: placestracker-app
+    ports:
+      - "${APP_HTTPS_PORT:-8143}:8143"
+    environment:
+      # Server Configuration
+      SERVER_PORT: 8143
+      SERVER_SERVLET_CONTEXT_PATH: /placestracker
+
+      # SSL Configuration (self-signed cert generated in entrypoint)
+      SERVER_SSL_ENABLED: "true"
+      SERVER_SSL_KEY_STORE: file:/app/certs/placestracker-keystore.p12
+      SERVER_SSL_KEY_STORE_PASSWORD: ${CERT_PASSWORD:-placestracker-dev-cert}
+      SERVER_SSL_KEY_STORE_TYPE: PKCS12
+      SERVER_SSL_KEY_ALIAS: ${CERT_ALIAS:-placestracker-local}
+
+      # Certificate generation settings (used by docker-entrypoint.sh)
+      CERT_PASSWORD: ${CERT_PASSWORD:-placestracker-dev-cert}
+      CERT_ALIAS: ${CERT_ALIAS:-placestracker-local}
+      CERT_HOSTS: ${CERT_HOSTS:-localhost,placestracker.local}
+      CERT_IPS: ${CERT_IPS:-127.0.0.1,0.0.0.0}
+      CERT_VALIDITY: ${CERT_VALIDITY:-3650}
+
+      # MongoDB - connects to VM Mongo via SSH tunnel on host
+      SPRING_MONGODB_URI: mongodb://host.docker.internal:27017/${MONGO_INITDB_DATABASE:-placestracker}
+
+      # Google Maps API Key
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+
+      # Logging
+      LOGGING_LEVEL_DK_PLACESTRACKER: INFO
+
+      # Java Memory Settings
+      JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx1g}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - app_logs:/app/logs
+      - app_certs:/app/certs
+    restart: unless-stopped
+
+volumes:
+  app_logs:
+    driver: local
+  app_certs:
+    driver: local

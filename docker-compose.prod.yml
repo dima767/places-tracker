@@ -1,0 +1,85 @@
+# Places Tracker - Production Docker Compose (exe.dev deployment)
+# MongoDB + Spring Boot behind exe.dev HTTPS proxy
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml down
+#
+# Requires: .env file with Google Maps API key (and any other secrets)
+
+name: placestracker-prod
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:8.0
+    container_name: placestracker-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-placestracker}
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - placestracker_mongodata:/data/db
+      - placestracker_mongoconfig:/data/configdb
+    networks:
+      - placestracker-network
+    restart: unless-stopped
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/${MONGO_INITDB_DATABASE:-placestracker} --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Places Tracker Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: placestracker-app
+    env_file: .env
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Server Configuration - no SSL, exe.dev handles TLS
+      SERVER_SSL_ENABLED: "false"
+      SERVER_PORT: 8080
+      SERVER_SERVLET_CONTEXT_PATH: /placestracker
+
+      # Forward headers from exe.dev reverse proxy
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      SERVER_TOMCAT_REMOTEIP_REMOTE_IP_HEADER: x-forwarded-for
+      SERVER_TOMCAT_REMOTEIP_PROTOCOL_HEADER: x-forwarded-proto
+
+      # MongoDB connection (Spring Boot 4.0: spring.mongodb.uri)
+      SPRING_MONGODB_URI: mongodb://mongodb:27017/${MONGO_INITDB_DATABASE:-placestracker}
+
+      # Google Maps API Key - from .env file
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+
+      # Logging
+      LOGGING_LEVEL_DK_PLACESTRACKER: INFO
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_DATA_MONGODB: WARN
+
+      # Java Memory Settings
+      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx512m}
+    volumes:
+      - placestracker_logs:/app/logs
+    networks:
+      - placestracker-network
+    restart: unless-stopped
+
+volumes:
+  placestracker_mongodata:
+    driver: local
+  placestracker_mongoconfig:
+    driver: local
+  placestracker_logs:
+    driver: local
+
+networks:
+  placestracker-network:
+    driver: bridge
