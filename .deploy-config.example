@@ -5,10 +5,10 @@
 
 # VM connection
 VM_HOST=your-app.exe.xyz
-VM_USER=execdev
+VM_USER=exedev
 
 # Application directory on VM
-APP_DIR=/home/execdev/places-tracker
+APP_DIR=/home/exedev/places-tracker
 
 # Repository URL - exe.dev GitHub integration format
 # After running: ssh exe.dev integrations add github --name your-integration --repository <user>/places-tracker --attach vm:your-app

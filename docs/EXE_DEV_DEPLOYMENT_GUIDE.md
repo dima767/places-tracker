@@ -56,8 +56,8 @@ cp .deploy-config.example .deploy-config
 
 Edit `.deploy-config`:
 - `VM_HOST=your-app.exe.xyz`
-- `VM_USER=execdev`
-- `APP_DIR=/home/execdev/places-tracker`
+- `VM_USER=exedev`
+- `APP_DIR=/home/exedev/places-tracker`
 - `REPO_URL=https://your-integration.int.exe.xyz/<user>/places-tracker.git` (from Step 2)
 
 ## Step 4 - Fill in `.env.prod` locally
@@ -76,7 +76,7 @@ Both `.deploy-config` and `.env.prod` are in `.gitignore`. Never commit them.
 ## Step 5 - Sanity check SSH to VM
 
 ```
-ssh execdev@your-app.exe.xyz echo ok
+ssh exedev@your-app.exe.xyz echo ok
 ```
 
 If this fails, check your SSH keys:
@@ -93,7 +93,7 @@ exe.dev auto-provisions your SSH key, so this should just work.
 ```
 
 What this does (all over encrypted SSH/SCP):
-1. Connects to `execdev@your-app.exe.xyz`
+1. Connects to `exedev@your-app.exe.xyz`
 2. Clones (or pulls) the repo on the VM via the exe.dev GitHub integration
 3. SCPs `.env.prod` to `${APP_DIR}/.env` with **600** perms
 4. Runs `docker compose -f docker-compose.prod.yml up -d --build` on the VM
@@ -307,7 +307,7 @@ places-tracker/
 `./deploy-to-exe.sh` does the build remotely. SSH in and check:
 
 ```
-ssh execdev@your-app.exe.xyz
+ssh exedev@your-app.exe.xyz
 cd places-tracker
 docker compose -f docker-compose.prod.yml build --no-cache app
 ```
@@ -346,11 +346,11 @@ If the local app is running inside a container, it must use `host.docker.interna
 The volume name on the VM is `placestracker-prod_placestracker_mongodata` (compose project name + volume name). `stop-db-exe.sh -v` targets that name. If your project name differs, check:
 
 ```
-ssh execdev@your-app.exe.xyz docker volume ls
+ssh exedev@your-app.exe.xyz docker volume ls
 ```
 
 And remove manually:
 
 ```
-ssh execdev@your-app.exe.xyz docker volume rm <name>
+ssh exedev@your-app.exe.xyz docker volume rm <name>
 ```
