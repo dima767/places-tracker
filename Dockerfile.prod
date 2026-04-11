@@ -5,6 +5,11 @@ FROM eclipse-temurin:25-jdk AS builder
 
 WORKDIR /build
 
+# Force IPv4 for network calls - exe.dev VMs have broken IPv6 egress in
+# Docker bridge, so Java's default v6-first breaks Maven Central downloads.
+ENV GRADLE_OPTS="-Djava.net.preferIPv4Stack=true -Djava.net.preferIPv4Addresses=true"
+ENV JAVA_TOOL_OPTIONS="-Djava.net.preferIPv4Stack=true -Djava.net.preferIPv4Addresses=true"
+
 # Copy Gradle wrapper and build files first (better layer caching)
 COPY gradlew gradlew
 COPY gradle/ gradle/
