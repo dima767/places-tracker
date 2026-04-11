@@ -35,7 +35,9 @@ public class DefaultGoogleMapsService implements GoogleMapsService {
 
     // Patterns for extracting data from URLs
     private static final Pattern PLACE_ID_PATTERN = Pattern.compile("place_id=([^&]+)");
-    private static final Pattern PLACE_NAME_PATTERN = Pattern.compile("/place/([^/@]+)");
+    private static final Pattern PLACE_NAME_PATTERN = Pattern.compile("/place/([^/@?]+)");
+    // iOS-shared short URLs resolve to ?q=Name+Here&ftid=... format (no /place/ path)
+    private static final Pattern QUERY_NAME_PATTERN = Pattern.compile("[?&]q=([^&]+)");
     private static final Pattern COORDINATES_PATTERN = Pattern.compile("@(-?\\d+\\.\\d+),(-?\\d+\\.\\d+)");
     // Actual place coordinates embedded in the data parameter (!3d=lat, !4d=lng)
     // These are more accurate than @coordinates which represent the map viewport center
@@ -143,14 +145,25 @@ public class DefaultGoogleMapsService implements GoogleMapsService {
     }
 
     private String extractPlaceName(String url) {
-        // Extract place name from /place/Name+With+Spaces/ format
+        // Extract place name from /place/Name+With+Spaces/ format (desktop share)
         Matcher matcher = PLACE_NAME_PATTERN.matcher(url);
         if (matcher.find()) {
-            String name = matcher.group(1);
-            // URL decode and replace + with spaces
-            return name.replace("+", " ");
+            return decodePlaceName(matcher.group(1));
+        }
+        // Fallback: ?q=Name+Here format (iOS Google Maps app share)
+        Matcher queryMatcher = QUERY_NAME_PATTERN.matcher(url);
+        if (queryMatcher.find()) {
+            return decodePlaceName(queryMatcher.group(1));
         }
         return null;
+    }
+
+    private String decodePlaceName(String raw) {
+        try {
+            return java.net.URLDecoder.decode(raw.replace("+", " "), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return raw.replace("+", " ");
+        }
     }
 
     /**
