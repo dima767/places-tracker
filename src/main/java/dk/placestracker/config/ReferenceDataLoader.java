@@ -57,11 +57,6 @@ public class ReferenceDataLoader implements ApplicationRunner {
     }
 
     private void loadStatesProvinces() {
-        if (stateProvinceRepository.count() > 0) {
-            log.debug("States/Provinces already loaded, skipping initialization");
-            return;
-        }
-
         log.info("Loading state/province reference data...");
 
         List<StateProvince> statesProvinces = List.of(
@@ -74,6 +69,7 @@ public class ReferenceDataLoader implements ApplicationRunner {
                 StateProvince.create("CO", "Colorado", "US", 6),
                 StateProvince.create("CT", "Connecticut", "US", 7),
                 StateProvince.create("DE", "Delaware", "US", 8),
+                StateProvince.create("DC", "District of Columbia", "US", 8),
                 StateProvince.create("FL", "Florida", "US", 9),
                 StateProvince.create("GA", "Georgia", "US", 10),
                 StateProvince.create("HI", "Hawaii", "US", 11),
@@ -167,7 +163,16 @@ public class ReferenceDataLoader implements ApplicationRunner {
                 StateProvince.create("CMX", "Ciudad de México", "MX", 32)
         );
 
-        stateProvinceRepository.saveAll(statesProvinces);
-        log.info("Loaded {} states/provinces", statesProvinces.size());
+        List<StateProvince> missing = statesProvinces.stream()
+                .filter(sp -> stateProvinceRepository.findByCountryCodeAndCode(sp.countryCode(), sp.code()).isEmpty())
+                .toList();
+
+        if (missing.isEmpty()) {
+            log.debug("States/Provinces already up to date, skipping initialization");
+            return;
+        }
+
+        stateProvinceRepository.saveAll(missing);
+        log.info("Loaded {} new states/provinces", missing.size());
     }
 }
