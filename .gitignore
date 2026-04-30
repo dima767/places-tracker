@@ -69,3 +69,5 @@ replay_pid*
 .env.prod
 .db-tunnel.pid
 backups/
+
+.claude/
