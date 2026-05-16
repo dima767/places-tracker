@@ -1,295 +1,180 @@
 # Places Tracker
 
-A modern web application for tracking visited places (parks, restaurants, landmarks, etc.) with Google Maps integration, photo management, and visit history.
+A personal web app for tracking visited places (parks, trails, restaurants, landmarks, scenic byways - whatever you like to explore). Built with Spring Boot 4 on Java 25 and a single MongoDB instance. Server-rendered HTML with htmx for interactivity, no SPA framework.
 
-## Features
+> This is a personal tool. There's no hosted public instance to try - the repo is here for code reading and so anyone who wants the same thing for themselves can run their own copy.
 
-- **Place Management** - Add, edit, and organize places you've visited
-- **Google Maps Integration** - Auto-fill place details from Google Maps URLs
-- **Visit Tracking** - Record multiple visits per place with dates, temperatures, and notes
-- **Photo Gallery** - Upload photos for each visit with lightbox viewing
-- **Distance Calculation** - See driving distances from your home location
-- **Google Reviews** - View ratings and reviews from Google
-- **Search & Filter** - Find places by name, location, or country
-- **Dark Mode** - Automatic theme based on system preferences
+## What it does
 
-## Tech Stack
+- **Places and visits as separate concepts** - a place is a fixed spot in the world; visits are moments in time. Each place has a `List<Visit>` with date, temperature, notes, duration, and photos.
+- **Google Maps quick-fill** - paste a Google Maps share link on the add-place form, click *Fill from URL*, and the place name, address, coordinates, country/state, Google rating, reviews, and Place ID auto-populate via the Places API (New).
+- **Driving distance from home** - cached per-place with a home-location fingerprint, so cache invalidates automatically when you move. Uses Google Distance Matrix with Haversine fallback when the API key isn't configured.
+- **Photo gallery per visit** - upload JPEG/PNG/WebP, stored in MongoDB GridFS, with on-demand thumbnails (also cached in GridFS). Parallel upload with rollback on partial failure.
+- **Favorites and wishlist** - mark places as favorite, or save not-yet-visited places to a wishlist; "visit" a wishlist item to flip it to visited and record the first visit in one step.
+- **Search, sort, filter** - on the places list and the wishlist.
+- **Dark mode** - automatic, based on system preference.
 
-- **Backend**: Spring Boot 4.0, Java 25
-- **Database**: MongoDB 8.0 with GridFS (photo storage)
-- **Frontend**: Thymeleaf, htmx, Bootstrap 5.3
-- **Build**: Gradle 9.2
-- **Testing**: JUnit 6, Testcontainers
+## Tech stack
 
-## Prerequisites
+| Layer | Choice |
+|---|---|
+| Language | Java 25 |
+| Framework | Spring Boot 4.0 |
+| Database | MongoDB 8.0 (with GridFS for photo storage) |
+| Web | Thymeleaf + htmx + Bootstrap 5.3 |
+| Build | Gradle 9.2 (wrapper included) |
+| Tests | JUnit 6, Testcontainers (real Mongo in tests) |
+| Deploy | Docker Compose; ships to exe.dev VM via included script |
 
-- **Java 25+** (for local development)
-- **MongoDB 8.0+** (local or containerized)
-- **Google Maps API Key** with these APIs enabled:
-  - Places API (New)
-  - Maps JavaScript API
-  - Distance Matrix API
+## Quick start
 
-## Quick Start
+### Option A: Everything in Docker (recommended)
 
-### Option 1: Docker Compose (Recommended)
+```bash
+git clone https://github.com/dima767/places-tracker.git
+cd places-tracker
+cp .env.example .env
+# Edit .env and set GOOGLE_MAPS_API_KEY=...
+./compose-up-standalone.sh
+```
 
-The fastest way to get started - runs both the app and MongoDB in containers.
+App at **https://localhost:8143/placestracker/** (accept the self-signed cert warning).
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-username/places-tracker.git
-   cd places-tracker
-   ```
+Stop with `./compose-down-standalone.sh`.
 
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your GOOGLE_MAPS_API_KEY
-   ```
+### Option B: Mongo in Docker, app on the host
 
-3. **Start the application**
-   ```bash
-   ./compose-up-standalone.sh
-   ```
+For when you want hot-reload via `gradle bootRun`:
 
-4. **Access the app**
+```bash
+cp .env.example .env
+./compose-up.sh                # starts Mongo only
+export GOOGLE_MAPS_API_KEY=...
+./gradlew bootRun
+```
 
-   Open https://localhost:8443/placestracker in your browser.
+App at **https://localhost:8143/placestracker/**. Stop Mongo with `./compose-down.sh`.
 
-   Accept the self-signed certificate warning (expected for local development).
+### Option C: Fully native
 
-5. **Stop the application**
-   ```bash
-   ./compose-down-standalone.sh
-   ```
+If you'd rather run Mongo yourself (Homebrew, Linux package, etc.):
 
-### Option 2: Local Development
-
-Run the app locally with a containerized MongoDB.
-
-1. **Clone and configure**
-   ```bash
-   git clone https://github.com/your-username/places-tracker.git
-   cd places-tracker
-   cp .env.example .env
-   # Edit .env and add your GOOGLE_MAPS_API_KEY
-   ```
-
-2. **Start MongoDB**
-   ```bash
-   ./compose-up.sh
-   ```
-
-3. **Run the application**
-   ```bash
-   # Set your API key
-   export GOOGLE_MAPS_API_KEY=your_api_key_here
-
-   # Run with Gradle
-   ./gradlew bootRun
-   ```
-
-4. **Access the app**
-
-   Open https://localhost:8443/placestracker
-
-5. **Stop MongoDB when done**
-   ```bash
-   ./compose-down.sh
-   ```
-
-### Option 3: Full Local Setup
-
-Run everything locally without Docker.
-
-1. **Install and start MongoDB**
-   ```bash
-   # macOS
-   brew install mongodb-community@8.0
-   brew services start mongodb-community@8.0
-
-   # Ubuntu
-   # Follow: https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/
-   ```
-
-2. **Clone and configure**
-   ```bash
-   git clone https://github.com/your-username/places-tracker.git
-   cd places-tracker
-   ```
-
-3. **Run the application**
-   ```bash
-   export GOOGLE_MAPS_API_KEY=your_api_key_here
-   ./gradlew bootRun
-   ```
-
-4. **Access the app**
-
-   Open https://localhost:8443/placestracker
+```bash
+brew install mongodb-community@8.0
+brew services start mongodb-community@8.0
+export GOOGLE_MAPS_API_KEY=...
+./gradlew bootRun
+```
 
 ## Configuration
 
-### Environment Variables
+### Environment variables
 
 | Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GOOGLE_MAPS_API_KEY` | Yes | - | Google Cloud API key |
-| `SPRING_MONGODB_URI` | No | `mongodb://localhost:27017/placestracker` | MongoDB connection string |
-| `CERT_PASSWORD` | No | `placestracker-dev-cert` | SSL certificate password |
-| `CERT_HOSTS` | No | `localhost,placestracker.local` | SSL certificate hostnames |
+|---|---|---|---|
+| `GOOGLE_MAPS_API_KEY` | Yes (for Maps features) | - | Google Cloud API key |
+| `SPRING_MONGODB_URI` | No | `mongodb://localhost:27017/placestracker` | Mongo connection string |
+| `CERT_PASSWORD` | No | `placestracker-dev-cert` | Password for the auto-generated HTTPS cert (Docker only) |
+| `CERT_HOSTS` | No | `localhost,placestracker.local` | Hostnames in the self-signed cert |
 | `JAVA_OPTS` | No | `-Xms512m -Xmx1g` | JVM memory settings |
 
-### Google Maps API Setup
+### Google Cloud setup
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable these APIs:
-   - **Places API (New)** - for place search and auto-fill
-   - **Maps JavaScript API** - for embedded maps
-   - **Distance Matrix API** - for driving distance calculations
-4. Create an API key under **APIs & Services > Credentials**
-5. (Recommended) Restrict the key to your domain/IP
+1. Create or pick a project in the [Google Cloud Console](https://console.cloud.google.com/).
+2. Enable: **Places API (New)**, **Maps JavaScript API**, **Distance Matrix API**.
+3. Create an API key under **APIs & Services → Credentials**.
+4. Restrict the key (HTTP referrer or IP allowlist) and set a billing quota cap before going to production.
+5. Put the key in `.env` (local) or `.env.prod` (VM deploy).
 
-### Application Properties
+## SSL / HTTPS
 
-Key configuration in `src/main/resources/application.properties`:
+The app runs HTTPS in all modes. There are two distinct keystores:
 
-```properties
-# Server
-server.port=8443
-server.servlet.context-path=/placestracker
+- **Dev keystore** (`src/main/resources/ssl/keystore.p12`) - committed, self-signed, password is the literal `changeit`. Loaded automatically when you run `./gradlew bootRun` on the host. Useless to attackers (default password, self-signed, only works for `localhost`). Browser will warn; accept and move on.
+- **Container keystore** - auto-generated at container start by `docker-entrypoint.sh` from the `CERT_PASSWORD` / `CERT_HOSTS` / `CERT_IPS` env vars. Used by both `docker-compose.standalone.yml` and the production deploy.
 
-# Photo upload limits
-app.photo.max-size-mb=15
-spring.servlet.multipart.max-request-size=100MB
+## Docker Compose layouts
 
-# MongoDB
-spring.mongodb.uri=${SPRING_MONGODB_URI:mongodb://localhost:27017/placestracker}
+| File | Purpose | Helper scripts |
+|---|---|---|
+| `docker-compose.yml` | MongoDB only (use with `gradle bootRun`) | `compose-up.sh`, `compose-down.sh` |
+| `docker-compose.standalone.yml` | App + MongoDB, everything containerised | `compose-up-standalone.sh`, `compose-down-standalone.sh` |
+| `docker-compose.local.yml` | App in Docker, Mongo over SSH tunnel to a remote VM | `compose-up-local.sh`, `compose-down-local.sh` |
+| `docker-compose.prod.yml` | Production deploy on a VM (used by `deploy-to-exe.sh`) | n/a (driven by deploy script) |
+
+## Deploying to exe.dev
+
+There's a one-shot deploy script for [exe.dev](https://exe.dev) VMs:
+
+```bash
+cp .deploy-config.example .deploy-config         # fill in VM_HOST, VM_USER, etc.
+cp .env.prod.example .env.prod                   # production env vars
+./deploy-to-exe.sh
 ```
+
+The script SSHs to the VM, clones/pulls the repo, copies `.env.prod` to the VM as `.env` with 600 perms, builds the Docker image, and starts the containers via `docker-compose.prod.yml`. The exe.dev proxy is configured automatically to point the public hostname at the container.
+
+Helper scripts for managing the running deployment:
+
+| Script | What it does |
+|---|---|
+| `status-exe.sh` | Show running containers and health |
+| `logs-exe.sh` | Tail app + db logs from the VM |
+| `logs-app.sh` / `logs-db.sh` / `logs-all.sh` | Local equivalents for the Docker Compose stacks |
+| `start-exe.sh` / `stop-exe.sh` | Start/stop the running stack on the VM (without redeploying) |
+| `start-db-exe.sh` / `stop-db-exe.sh` | Start/stop just Mongo on the VM |
+| `db-tunnel.sh` | Open an SSH tunnel from `localhost:27017` to the VM's Mongo (use with `dev-remote-db.sh`) |
+| `dev-remote-db.sh` | Run the app locally against the tunneled VM Mongo |
+| `backup-db.sh` | `mongodump` against the configured Mongo and write to `backups/` |
+| `restore-db.sh` | `mongorestore` from a backup dump |
+| `build-and-run.sh` | Build a fat jar and run it directly (no Docker) |
 
 ## Development
 
-### Running Tests
-
 ```bash
-# Run all tests (uses Testcontainers - requires Docker)
-./gradlew test
-
-# Run with verbose output
-./gradlew test --info
+./gradlew test          # runs tests via Testcontainers (needs Docker)
+./gradlew bootJar       # produces build/libs/places-tracker-1.1.3.jar
+./gradlew build         # full build + tests
 ```
 
-### Building
+Hot reload via Spring Boot DevTools is enabled - changes to templates and Java code trigger an automatic restart in `bootRun` mode.
 
-```bash
-# Build JAR (skip tests for faster builds)
-./gradlew bootJar -x test
-
-# Build with tests
-./gradlew build
-
-# Output: build/libs/places-tracker-*.jar
-```
-
-### Hot Reload
-
-Spring Boot DevTools is included. Changes to templates and code trigger automatic restart when running with `bootRun`.
-
-### Code Structure
+### Code layout
 
 ```
 src/main/java/dk/placestracker/
-├── PlacesTrackerApplication.java  # Main entry point
-├── controller/                     # Web controllers
-├── domain/                         # Place, Visit, Review records
-├── repository/                     # MongoDB repositories
-├── service/                        # Business logic
-└── util/                           # Helper utilities
+├── PlacesTrackerApplication.java
+├── config/        # SecurityConfig, RestClientConfig, etc.
+├── domain/
+│   ├── model/     # Place, Visit, Review, Settings (Java records)
+│   └── repository/
+├── service/       # PlaceService, PhotoService, GoogleMapsService, DistanceService, ...
+├── util/          # DurationUtils, DistanceCalculator
+└── web/
+    ├── controller/  # HomeController, PlaceController, SettingsController
+    └── dto/
 
 src/main/resources/
-├── application.properties          # Configuration
-├── templates/                      # Thymeleaf templates
-└── static/                         # CSS, JS, images
+├── application.properties
+├── static/        # CSS, JS, images, lightbox assets
+├── templates/     # Thymeleaf views
+│   ├── index.html, layout.html
+│   ├── places/    # list, detail, create, edit, wishlist views
+│   └── settings/
+└── ssl/keystore.p12
 ```
 
-## Docker
+## Security notes
 
-### Build Image Only
-
-```bash
-docker build -t placestracker:latest .
-```
-
-### Run with External MongoDB
-
-```bash
-docker run -d \
-  --name your-integration \
-  -p 8443:8443 \
-  -e GOOGLE_MAPS_API_KEY=your_key \
-  -e SPRING_MONGODB_URI=mongodb://host.docker.internal:27017/placestracker \
-  placestracker:latest
-```
-
-### Docker Compose Files
-
-| File | Description |
-|------|-------------|
-| `docker-compose.yml` | MongoDB only (for local development) |
-| `docker-compose.standalone.yml` | Full stack (app + MongoDB) |
-
-### Helper Scripts
-
-| Script | Description |
-|--------|-------------|
-| `compose-up.sh` | Start MongoDB only |
-| `compose-down.sh` | Stop MongoDB |
-| `compose-up-standalone.sh` | Start full stack |
-| `compose-down-standalone.sh` | Stop full stack |
-| `build-and-run.sh` | Build and run locally |
-
-## Usage Tips
-
-### Adding a Place
-
-1. Click **New Place**
-2. Paste a Google Maps URL to auto-fill details, or enter manually
-3. Add visit information (date, temperature, notes)
-4. Upload photos for each visit
-5. Save
-
-### Google Maps URL Auto-fill
-
-The app extracts place details from Google Maps URLs:
-- Name, address, coordinates
-- Ratings and reviews
-- Place ID for linking back to Google
-
-Just paste the URL in the Google Maps URL field and click **Extract**.
-
-### Setting Home Location
-
-1. Go to **Settings**
-2. Enter your home coordinates
-3. Distance from home will appear on place detail pages
+- `.env`, `.env.prod`, `.deploy-config`, `.claude/` are all gitignored. Only `.*.example` template files are committed.
+- The dev keystore is committed *deliberately* with a known-default password because it's used only for `localhost` HTTPS in development. Don't reuse it anywhere else.
+- The production keystore is generated fresh inside the container at startup, never committed, never reused.
+- Run `npm audit` / `./gradlew dependencies` periodically and watch the GitHub security tab. PRs that touch dependencies should explain why.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+MIT - see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- [Spring Boot](https://spring.io/projects/spring-boot)
-- [htmx](https://htmx.org/)
-- [Bootstrap](https://getbootstrap.com/)
-- [Lightbox2](https://lokeshdhakar.com/projects/lightbox2/)
+Built with [Spring Boot](https://spring.io/projects/spring-boot), [htmx](https://htmx.org/), [Bootstrap](https://getbootstrap.com/), [Thumbnailator](https://github.com/coobird/thumbnailator), and [Lightbox2](https://lokeshdhakar.com/projects/lightbox2/). UI/UX work and several backend pieces (Mongo + GridFS, Google Maps URL parsing) were done in collaboration with Claude Code.
