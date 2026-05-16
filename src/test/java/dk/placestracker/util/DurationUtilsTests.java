@@ -237,4 +237,70 @@ class DurationUtilsTests {
         String result = DurationUtils.format(duration);
         assertThat(result).isEqualTo("1 hour 2 minutes");
     }
+
+    @Test
+    void parseHumanFriendlyMinutes() {
+        assertThat(DurationUtils.parse("20 minutes")).isEqualTo(Duration.ofMinutes(20));
+        assertThat(DurationUtils.parse("1 minute")).isEqualTo(Duration.ofMinutes(1));
+    }
+
+    @Test
+    void parseHumanFriendlyHours() {
+        assertThat(DurationUtils.parse("3 hours")).isEqualTo(Duration.ofHours(3));
+        assertThat(DurationUtils.parse("1 hour")).isEqualTo(Duration.ofHours(1));
+    }
+
+    @Test
+    void parseHumanFriendlyDays() {
+        assertThat(DurationUtils.parse("2 days")).isEqualTo(Duration.ofDays(2));
+        assertThat(DurationUtils.parse("1 day")).isEqualTo(Duration.ofDays(1));
+    }
+
+    @Test
+    void parseHumanFriendlyHoursAndMinutes() {
+        assertThat(DurationUtils.parse("1 hour 25 minutes"))
+                .isEqualTo(Duration.ofHours(1).plusMinutes(25));
+    }
+
+    @Test
+    void parseHumanFriendlyDaysHoursAndMinutes() {
+        assertThat(DurationUtils.parse("2 days 5 hours 30 minutes"))
+                .isEqualTo(Duration.ofDays(2).plusHours(5).plusMinutes(30));
+    }
+
+    @Test
+    void parseHumanFriendlyDaysAndMinutes() {
+        assertThat(DurationUtils.parse("1 day 30 minutes"))
+                .isEqualTo(Duration.ofDays(1).plusMinutes(30));
+    }
+
+    @Test
+    void parseHumanFriendlyCaseInsensitive() {
+        assertThat(DurationUtils.parse("1 Hour 25 Minutes"))
+                .isEqualTo(Duration.ofHours(1).plusMinutes(25));
+    }
+
+    @Test
+    void formatThenParseRoundTrip() {
+        Duration original = Duration.ofDays(2).plusHours(5).plusMinutes(30);
+        String formatted = DurationUtils.format(original);
+        Duration reparsed = DurationUtils.parse(formatted);
+        assertThat(reparsed).isEqualTo(original);
+    }
+
+    @Test
+    void formatThenParseRoundTripMinutesOnly() {
+        Duration original = Duration.ofMinutes(20);
+        String formatted = DurationUtils.format(original);
+        Duration reparsed = DurationUtils.parse(formatted);
+        assertThat(reparsed).isEqualTo(original);
+    }
+
+    @Test
+    void formatThenParseRoundTripSingularHour() {
+        Duration original = Duration.ofHours(1).plusMinutes(2);
+        String formatted = DurationUtils.format(original);
+        Duration reparsed = DurationUtils.parse(formatted);
+        assertThat(reparsed).isEqualTo(original);
+    }
 }
