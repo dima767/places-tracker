@@ -30,6 +30,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   # Places Tracker Application
   app:
@@ -64,13 +69,28 @@ services:
       LOGGING_LEVEL_DK_PLACESTRACKER: INFO
       LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_DATA_MONGODB: WARN
 
-      # Java Memory Settings
-      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx512m}
+      # Java Memory Settings - this compose file is the single source of truth.
+      # NOTE: JAVA_OPTS must NOT be set in .env or it shadows this (it was - .env
+      # had -Xmx4g, the likely cause of the Jun 25 freeze: 4g heap + mongo on a
+      # 7.7g box with no swap -> memory over-commit -> reclaim-thrash livelock,
+      # froze the app and SSH with no clean OOM-kill logged).
+      # Heap lowered 4g -> 2g (ample for the image/thumbnail workload, leaves
+      # room for mongo + OS). Heap dump on OOM + rotating GC log to the /app/logs
+      # volume so the next hang leaves post-mortem evidence.
+      JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx2g -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/logs -Xlog:gc*:file=/app/logs/gc.log:time,uptime,level,tags:filecount=5,filesize=10m}
     volumes:
       - placestracker_logs:/app/logs
     networks:
       - placestracker-network
     restart: unless-stopped
+    # Hard cap so a runaway JVM can't starve the whole VM (incl. SSH) like Jun 25.
+    # Sized above -Xmx2g to leave room for metaspace/threads/direct buffers.
+    mem_limit: 2.5g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 volumes:
   placestracker_mongodata:
